@@ -1,0 +1,14 @@
+{
+    "com_port": "COM3",
+    "baud_rate": 115200,
+    "num_leds": 60,
+    "monitor_index": 1,
+    "gamma": 2.2,
+    "depth": 100,
+    "leds_per_side": {
+        "left": 10,
+        "top": 20,
+        "right": 10,
+        "bottom": 20
+    }
+}

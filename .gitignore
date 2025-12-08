@@ -1,0 +1,14 @@
+secrets.h
+.env
+config.py
+.pio/
+.pioenvs/
+.piolibdeps/
+__pycache__/
+*.pyc
+.vscode/
+Thumbs.db
+.DS_Store
+*.spec
+build/
+dist/
