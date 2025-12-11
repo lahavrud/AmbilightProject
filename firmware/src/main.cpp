@@ -4,20 +4,15 @@
 #include <FastLED.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h> 
-#include "secrets.h"
+#include "AppConfig.h"
 
 // --- Hardware Settings ---
 #define LED_PIN     16
-#define NUM_LEDS    124
-#define BRIGHTNESS  50
+#define MAX_LEDS    800
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB 
-uint8_t hue = 0;
 
-// --- WiFi Settings ---
-const char* ssid = WIFI_SSID;
-const char* password = WIFI_PASS;
-const char* hostName = HOST_NAME;
+uint8_t hue = 0;
 
 enum SystemMode {
   MODE_STATIC,
@@ -27,31 +22,33 @@ enum SystemMode {
 };
 enum SystemMode currentMode = MODE_STATIC;
 
-CRGB leds[NUM_LEDS];
-CRGB targetLeds[NUM_LEDS];
+CRGB leds[MAX_LEDS];
+CRGB targetLeds[MAX_LEDS];
 
-uint8_t SMOOTHING_SPEED = 40;
+uint8_t SMOOTHING_SPEED = 30;
 
 WebServer server(80);
 
-// --- פונקציות עזר ---
-void ledsSetup() {
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS);
-  FastLED.setCorrection(TypicalLEDStrip); // התיקון ללבן כחלחל
-  FastLED.setBrightness(BRIGHTNESS);
+// --- Helper Functions ---
+void ledsSetup(uint16_t numLeds, uint8_t brightness) {
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, numLeds);
+
+  FastLED.setCorrection(TypicalLEDStrip); 
+  FastLED.setBrightness(brightness);
+
   FastLED.clear();
   FastLED.show();
 }
 
-void runRainbow() {
+void runRainbow(uint16_t numLeds) {
   EVERY_N_MILLISECONDS(20) {
     hue++;
-    fill_rainbow(leds, NUM_LEDS, hue, 7);
+    fill_rainbow(leds, numLeds, hue, 7);
     FastLED.show();
   }
 }
 
-void runAmbilight() {
+void runAmbilight(uint16_t numLeds) {
   if (Serial.available() < 6) return;
   if (Serial.read() != 'A') return; 
   if (Serial.read() != 'd') return; 
@@ -63,29 +60,22 @@ void runAmbilight() {
   unsigned char result = hibyte ^ lobyte ^ 0x55; 
   if (result != checksum) return;
 
-  Serial.readBytes((char*)targetLeds, NUM_LEDS * 3);
+  Serial.readBytes((char*)targetLeds, numLeds * 3);
 }
 
 // --- Handlers ---
 
-// דף הבית - קורא את הקובץ מהזיכרון ושולח לדפדפן
+// Root Path
 void handleRoot() {
-  // פותח את הקובץ לקריאה (r)
   File file = LittleFS.open("/index.html", "r");
-  
   if (!file) {
     server.send(500, "text/plain", "Error: index.html missing!");
     return;
   }
-  
-  // הזרמת הקובץ לדפדפן (יעיל מאוד)
   server.streamFile(file, "text/html");
-  
-  // סגירת הקובץ
   file.close();
 }
 
-// ה-API לשינוי צבע (נשאר אותו דבר)
 void handleSetColor() {
   if (!server.hasArg("r") || !server.hasArg("g") || !server.hasArg("b")) {
     server.send(400, "text/plain", "Missing args");
@@ -98,7 +88,7 @@ void handleSetColor() {
 
   currentMode = MODE_STATIC;
 
-  fill_solid(leds, NUM_LEDS, CRGB(r, g, b));
+  fill_solid(leds, appConfig.num_leds, CRGB(r, g, b));
   FastLED.show();
 
   server.send(200, "text/plain", "OK");
@@ -151,27 +141,47 @@ void setup() {
   Serial.setRxBufferSize(1024);
   Serial.begin(921600); 
   Serial.setTimeout(50);
-  ledsSetup();
 
-  // 1. אתחול מערכת הקבצים (Mounting)
   if (!LittleFS.begin()) {
     Serial.println("LittleFS Mount Failed. Formatting...");
-    // אם נכשל, נפרמט וננסה שוב (קורה בפעם הראשונה)
     LittleFS.format();
     LittleFS.begin();
   } else {
     Serial.println("LittleFS Mounted Successfully");
   }
 
+  loadConfig();
+
+  if (appConfig.baud_rate != 115200) {
+    Serial.flush();
+    Serial.updateBaudRate(appConfig.baud_rate);
+  }
+
+  ledsSetup(appConfig.num_leds, appConfig.brightness);
+
   // WiFi Initiate
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
-  Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+  WiFi.begin(appConfig.wifi_ssid, appConfig.wifi_pass);
 
-  if (MDNS.begin(hostName)) {
-    Serial.println("mDNS started: http://" + String(hostName) + ".local");
+  Serial.print("Connecting to WiFi: ");
+  Serial.println(appConfig.wifi_ssid);
+
+  uint8_t retries = 0;
+  while (WiFi.status() != WL_CONNECTED && retries < 20) { 
+    delay(500);
+    Serial.print("."); 
+    retries++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+  } else {
+    Serial.println("\nWiFi Connection Failed!");
+  }
+  
+  if (MDNS.begin(appConfig.hostname)) {
+    Serial.println("mDNS started: http://" + String(appConfig.hostname) + ".local");
   }
 
   server.on("/", handleRoot);
@@ -186,9 +196,9 @@ void setup() {
 
 void loop() {
   if (currentMode == MODE_AMBILIGHT) {
-    runAmbilight();
+    runAmbilight(appConfig.num_leds);
 
-    for (int i = 0; i < NUM_LEDS; i++)
+    for (int i = 0; i < appConfig.num_leds; i++)
     {
       nblend(leds[i], targetLeds[i], SMOOTHING_SPEED);
     }
@@ -206,7 +216,7 @@ void loop() {
       case MODE_STATIC:
         break;
       case MODE_RAINBOW:
-        runRainbow();
+        runRainbow(appConfig.num_leds);
         break;
       case MODE_OFF:
         break;

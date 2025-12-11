@@ -8,7 +8,7 @@ Config appConfig = {
 };
 
 void loadConfig() {
-    File file = LittleFS.open("/data/config.json", "r");
+    File file = LittleFS.open("/config.json", "r");
     if (!file) {
         Serial.println("No config file found, using defaults");
         return;
