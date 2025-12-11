@@ -6,13 +6,18 @@
 #include <LittleFS.h> 
 #include "secrets.h"
 
-// --- הגדרות חומרה ---
+// --- Hardware Settings ---
 #define LED_PIN     16
 #define NUM_LEDS    124
 #define BRIGHTNESS  50
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB 
 uint8_t hue = 0;
+
+// --- WiFi Settings ---
+const char* ssid = WIFI_SSID;
+const char* password = WIFI_PASS;
+const char* hostName = HOST_NAME;
 
 enum SystemMode {
   MODE_STATIC,
@@ -21,11 +26,6 @@ enum SystemMode {
   MODE_OFF
 };
 enum SystemMode currentMode = MODE_STATIC;
-
-// --- הגדרות רשת ---
-const char* ssid = WIFI_SSID;
-const char* password = WIFI_PASS;
-const char* hostName = HOST_NAME;
 
 CRGB leds[NUM_LEDS];
 CRGB targetLeds[NUM_LEDS];

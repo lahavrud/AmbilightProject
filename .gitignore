@@ -12,3 +12,4 @@ Thumbs.db
 *.spec
 build/
 dist/
+firmware/data/config.json

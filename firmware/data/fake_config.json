@@ -1,0 +1,24 @@
+{
+  "network": {
+    "hostname": "ambilight",
+    "wifi_ssid": "YOUR_WIFI_NAME",
+    "wifi_pass": "YOUR_WIFI_PASSWORD"
+  },
+  "hardware": {
+    "baud_rate": 921600,
+    "num_leds": 124,
+    "brightness": 50
+  },
+  "client": {
+    "com_port": "COM3",
+    "monitor_index": 1,
+    "gamma": 2.2,
+    "depth": 100,
+    "layout": {
+      "left": 17,
+      "top": 46,
+      "right": 17,
+      "bottom": 44
+    }
+  }
+}
