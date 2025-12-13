@@ -1,0 +1,98 @@
+#include "AppConfig.h"
+#include "WebController.h"
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include <LittleFS.h>
+#include <Arduino.h>
+
+WebController::WebController() : server(80) {
+
+}
+
+void WebController::begin() {
+    AppConfig& cfg = AppConfig::get();
+
+    if (!LittleFS.begin()) {
+        Serial.println("LittleFS Mount Failed");
+    }
+
+    // WiFi Initiate
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
+    WiFi.begin(cfg.wifi_ssid, cfg.wifi_pass);
+
+    Serial.print("Connecting to WiFi: ");
+    Serial.println(cfg.wifi_ssid);
+
+    uint8_t retries = 0;
+    while (WiFi.status() != WL_CONNECTED && retries < 20) { 
+    delay(500);
+    Serial.print("."); 
+    retries++;
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
+    } else {
+    Serial.println("\nWiFi Connection Failed!");
+    }
+
+    // DNS
+    if (MDNS.begin(cfg.hostname)) {
+    Serial.println("mDNS started: http://" + String(cfg.hostname) + ".local");
+    }
+
+    // Routes
+    server.on("/", [this](){ handleRoot(); });
+    server.on("/set", [this](){ handleSetColor(); });
+    server.on("/brightness", [this](){ handleSetBrightness(); });
+    server.on("/mode", [this](){ handleSetMode(); });
+    server.onNotFound([this](){ handleNotFound(); });
+    server.begin();
+}
+
+// --- Handlers ---
+void WebController::handleRoot() {
+    if (!LittleFS.begin()) {
+        Serial.println("LittleFS failed!");
+        return;
+    }
+    File file = LittleFS.open("/index.html", "r");
+    if (!file) {
+        server.send(500, "text/plain", "Index missing");
+        return;
+    }
+    server.streamFile(file, "text/html");
+    file.close();
+}
+
+void WebController::handleSetColor() {
+    Serial.println("Got Color Request!"); 
+    
+    if (server.hasArg("r")) {
+        int r = server.arg("r").toInt();
+        Serial.print("R: "); Serial.println(r);
+    }
+    
+    server.send(200, "text/plain", "OK");
+}
+
+void WebController::handleSetBrightness() {
+    Serial.println("Got Brightness Request!");
+    server.send(200, "text/plain", "OK");
+}
+
+void WebController::handleSetMode() {
+    Serial.println("Got Mode Request!");
+    server.send(200, "text/plain", "OK");
+}
+
+void WebController::handleNotFound() {
+    server.send(404, "text/plain", "Not found");
+}
+
+void WebController::handleClient() {
+    server.handleClient();
+}
+
+

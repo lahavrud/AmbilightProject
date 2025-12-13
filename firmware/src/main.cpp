@@ -6,11 +6,14 @@
 #include <LittleFS.h> 
 #include "AppConfig.h"
 
-// --- Hardware Settings ---
+// --- Hardware Constants Settings ---
 #define LED_PIN     16
 #define MAX_LEDS    800
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB 
+
+// --- Global Configuration ---
+AppConfig& appConfig = AppConfig::get();
 
 uint8_t hue = 0;
 
@@ -25,16 +28,23 @@ enum SystemMode currentMode = MODE_STATIC;
 CRGB leds[MAX_LEDS];
 CRGB targetLeds[MAX_LEDS];
 
-uint8_t SMOOTHING_SPEED = 30;
-
 WebServer server(80);
 
 // --- Helper Functions ---
-void ledsSetup(uint16_t numLeds, uint8_t brightness) {
+
+void ledsSetup() {
+  uint16_t numLeds = appConfig.num_leds;
+  uint8_t brightness = appConfig.brightness;
+  uint16_t max_mA = appConfig.max_milliamps;
+
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, numLeds);
 
   FastLED.setCorrection(TypicalLEDStrip); 
   FastLED.setBrightness(brightness);
+  
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, max_mA);
+
+  if (numLeds > MAX_LEDS) numLeds = MAX_LEDS;
 
   FastLED.clear();
   FastLED.show();
@@ -50,14 +60,16 @@ void runRainbow(uint16_t numLeds) {
 
 void runAmbilight(uint16_t numLeds) {
   if (Serial.available() < 6) return;
+  
   if (Serial.read() != 'A') return; 
   if (Serial.read() != 'd') return; 
   if (Serial.read() != 'a') return; 
 
-  unsigned char hibyte = Serial.read(); // Hi-Byte count
-  unsigned char lobyte = Serial.read(); // Lo-Byte count
-  unsigned char checksum = Serial.read(); // Checksum
+  unsigned char hibyte = Serial.read(); 
+  unsigned char lobyte = Serial.read(); 
+  unsigned char checksum = Serial.read(); 
   unsigned char result = hibyte ^ lobyte ^ 0x55; 
+  
   if (result != checksum) return;
 
   Serial.readBytes((char*)targetLeds, numLeds * 3);
@@ -65,7 +77,6 @@ void runAmbilight(uint16_t numLeds) {
 
 // --- Handlers ---
 
-// Root Path
 void handleRoot() {
   File file = LittleFS.open("/index.html", "r");
   if (!file) {
@@ -100,6 +111,8 @@ void handleSetBrightness() {
     return;
   }
   int val = server.arg("val").toInt();
+  
+  appConfig.brightness = val;
   FastLED.setBrightness(val);
   FastLED.show();
 
@@ -112,12 +125,9 @@ void handleSetMode() {
     return;
   }
   String m = server.arg("m");
-  if (m == "static") {
-    currentMode = MODE_STATIC;
-  }
-  else if (m == "rainbow") {
-    currentMode = MODE_RAINBOW;
-  }
+  
+  if (m == "static") currentMode = MODE_STATIC;
+  else if (m == "rainbow") currentMode = MODE_RAINBOW;
   else if(m == "ambilight") {
     currentMode = MODE_AMBILIGHT;
     delay(100);
@@ -134,32 +144,23 @@ void handleNotFound() {
   server.send(404, "text/plain", "Not found");
 }
 
-
 // --- Setup ---
 
 void setup() {
-  Serial.setRxBufferSize(1024);
-  Serial.begin(921600); 
+  Serial.setRxBufferSize(1028); 
+  Serial.begin(115200); 
   Serial.setTimeout(50);
 
-  if (!LittleFS.begin()) {
-    Serial.println("LittleFS Mount Failed. Formatting...");
-    LittleFS.format();
-    LittleFS.begin();
-  } else {
-    Serial.println("LittleFS Mounted Successfully");
-  }
-
-  loadConfig();
+  appConfig.loadConfig();
 
   if (appConfig.baud_rate != 115200) {
     Serial.flush();
     Serial.updateBaudRate(appConfig.baud_rate);
+    delay(100);
   }
+  
+  ledsSetup();
 
-  ledsSetup(appConfig.num_leds, appConfig.brightness);
-
-  // WiFi Initiate
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);
   WiFi.begin(appConfig.wifi_ssid, appConfig.wifi_pass);
@@ -179,7 +180,7 @@ void setup() {
   } else {
     Serial.println("\nWiFi Connection Failed!");
   }
-  
+   
   if (MDNS.begin(appConfig.hostname)) {
     Serial.println("mDNS started: http://" + String(appConfig.hostname) + ".local");
   }
@@ -193,19 +194,24 @@ void setup() {
   server.begin();
 }
 
+// --- Main Loop ---
 
 void loop() {
-  if (currentMode == MODE_AMBILIGHT) {
-    runAmbilight(appConfig.num_leds);
+  uint16_t numLeds = appConfig.num_leds;
 
-    for (int i = 0; i < appConfig.num_leds; i++)
+  if (currentMode == MODE_AMBILIGHT) {
+    runAmbilight(numLeds);
+
+    uint8_t smooth = appConfig.smoothing_speed;
+
+    for (int i = 0; i < numLeds; i++)
     {
-      nblend(leds[i], targetLeds[i], SMOOTHING_SPEED);
+      nblend(leds[i], targetLeds[i], smooth);
     }
     FastLED.show();
 
     static unsigned long lastWifiCheck = 0;
-    if (millis()-lastWifiCheck > 500) {
+    if (millis() - lastWifiCheck > 500) {
       server.handleClient();
       lastWifiCheck = millis();
     }
@@ -216,12 +222,11 @@ void loop() {
       case MODE_STATIC:
         break;
       case MODE_RAINBOW:
-        runRainbow(appConfig.num_leds);
+        runRainbow(numLeds);
         break;
       case MODE_OFF:
         break;
     }
-  delay(2);
+    delay(2);
   }
-
 }

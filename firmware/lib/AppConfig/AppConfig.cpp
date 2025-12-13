@@ -2,34 +2,59 @@
 #include <ArduinoJson.h>
 #include <LittleFS.h>
 
-Config appConfig = {
-    "ambilight", "", "",
-    921600, 60, 50
+AppConfig& AppConfig::get() {
+    static AppConfig instance;
+    return instance;
 };
 
-void loadConfig() {
+// Defaults
+AppConfig::AppConfig() {
+    // Network
+    strlcpy(hostname, "ambilight", sizeof(hostname));
+    wifi_ssid[0] = '\0';
+    wifi_pass[0] = '\0';
+
+    // Hardware
+    baud_rate = 115200;
+    num_leds = 60;
+    brightness = 50;
+    max_milliamps = 1500;
+    smoothing_speed = 20;
+}
+
+void AppConfig::loadConfig() {
+    if (!LittleFS.begin()) {
+        Serial.println("Failed to mount file system");
+        return;
+    }
+
     File file = LittleFS.open("/config.json", "r");
     if (!file) {
         Serial.println("No config file found, using defaults");
         return;
     }
+
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, file);
 
     if (error) {
         Serial.println("Failed to parse config file");
+        Serial.println(error.c_str());
+        file.close();
         return;
     }
 
-    /// WiFi
-    if (doc["network"]["hostname"]) strlcpy(appConfig.hostname, doc["network"]["hostname"], sizeof(appConfig.hostname));
-    if (doc["network"]["wifi_ssid"]) strlcpy(appConfig.wifi_ssid, doc["network"]["wifi_ssid"], sizeof(appConfig.wifi_ssid));
-    if (doc["network"]["wifi_pass"]) strlcpy(appConfig.wifi_pass, doc["network"]["wifi_pass"], sizeof(appConfig.wifi_pass));
+    /// Network
+    if (doc["network"]["hostname"]) strlcpy(hostname, doc["network"]["hostname"], sizeof(hostname));
+    if (doc["network"]["wifi_ssid"]) strlcpy(wifi_ssid, doc["network"]["wifi_ssid"], sizeof(wifi_ssid));
+    if (doc["network"]["wifi_pass"]) strlcpy(wifi_pass, doc["network"]["wifi_pass"], sizeof(wifi_pass));
 
     // Hardware
-    appConfig.baud_rate = doc["hardware"]["baud_rate"] | appConfig.baud_rate;
-    appConfig.num_leds = doc["hardware"]["num_leds"] | appConfig.num_leds;
-    appConfig.brightness = doc["hardware"]["brightness"] | appConfig.brightness;
+    baud_rate = doc["hardware"]["baud_rate"] | baud_rate;
+    num_leds = doc["hardware"]["num_leds"] | num_leds;
+    brightness = doc["hardware"]["brightness"] | brightness;
+    max_milliamps = doc["hardware"]["max_milliamps"] | max_milliamps;
+    smoothing_speed = doc["hardware"]["max_milliamps"] | smoothing_speed;
 
     file.close();
     Serial.println("Config loaded successfully");
