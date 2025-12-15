@@ -93,6 +93,7 @@ void WebController::handleSetBrightness() {
 
         leds.setBrightness(val);
         AppConfig::get().brightness = val;
+        Serial.printf("Set Brightness: %d", val);
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "Missing val");
