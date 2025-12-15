@@ -2,10 +2,12 @@
 #define WEB_CONTROLLER_H
 
 #include <WebServer.h>
+#include "LedController.h"
 
 class WebController {
 private:
     WebServer server;
+    LedController& leds;
 
     // --- Handlers ---
     void handleRoot();
@@ -15,7 +17,7 @@ private:
     void handleNotFound();
 
 public:
-    WebController();
+    WebController(LedController& ledCtrl);
     void begin(); 
     void handleClient(); 
 };

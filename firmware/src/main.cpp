@@ -1,232 +1,34 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <FastLED.h>
-#include <ESPmDNS.h>
-#include <LittleFS.h> 
 #include "AppConfig.h"
+#include "LedController.h"
+#include "WebController.h"
 
-// --- Hardware Constants Settings ---
-#define LED_PIN     16
-#define MAX_LEDS    800
-#define LED_TYPE    WS2812B
-#define COLOR_ORDER GRB 
+LedController mainLeds;
 
-// --- Global Configuration ---
-AppConfig& appConfig = AppConfig::get();
-
-uint8_t hue = 0;
-
-enum SystemMode {
-  MODE_STATIC,
-  MODE_RAINBOW,
-  MODE_AMBILIGHT,
-  MODE_OFF
-};
-enum SystemMode currentMode = MODE_STATIC;
-
-CRGB leds[MAX_LEDS];
-CRGB targetLeds[MAX_LEDS];
-
-WebServer server(80);
-
-// --- Helper Functions ---
-
-void ledsSetup() {
-  uint16_t numLeds = appConfig.num_leds;
-  uint8_t brightness = appConfig.brightness;
-  uint16_t max_mA = appConfig.max_milliamps;
-
-  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, numLeds);
-
-  FastLED.setCorrection(TypicalLEDStrip); 
-  FastLED.setBrightness(brightness);
-  
-  FastLED.setMaxPowerInVoltsAndMilliamps(5, max_mA);
-
-  if (numLeds > MAX_LEDS) numLeds = MAX_LEDS;
-
-  FastLED.clear();
-  FastLED.show();
-}
-
-void runRainbow(uint16_t numLeds) {
-  EVERY_N_MILLISECONDS(20) {
-    hue++;
-    fill_rainbow(leds, numLeds, hue, 7);
-    FastLED.show();
-  }
-}
-
-void runAmbilight(uint16_t numLeds) {
-  if (Serial.available() < 6) return;
-  
-  if (Serial.read() != 'A') return; 
-  if (Serial.read() != 'd') return; 
-  if (Serial.read() != 'a') return; 
-
-  unsigned char hibyte = Serial.read(); 
-  unsigned char lobyte = Serial.read(); 
-  unsigned char checksum = Serial.read(); 
-  unsigned char result = hibyte ^ lobyte ^ 0x55; 
-  
-  if (result != checksum) return;
-
-  Serial.readBytes((char*)targetLeds, numLeds * 3);
-}
-
-// --- Handlers ---
-
-void handleRoot() {
-  File file = LittleFS.open("/index.html", "r");
-  if (!file) {
-    server.send(500, "text/plain", "Error: index.html missing!");
-    return;
-  }
-  server.streamFile(file, "text/html");
-  file.close();
-}
-
-void handleSetColor() {
-  if (!server.hasArg("r") || !server.hasArg("g") || !server.hasArg("b")) {
-    server.send(400, "text/plain", "Missing args");
-    return;
-  }
-
-  int r = server.arg("r").toInt();
-  int g = server.arg("g").toInt();
-  int b = server.arg("b").toInt();
-
-  currentMode = MODE_STATIC;
-
-  fill_solid(leds, appConfig.num_leds, CRGB(r, g, b));
-  FastLED.show();
-
-  server.send(200, "text/plain", "OK");
-}
-
-void handleSetBrightness() {
-  if (!server.hasArg("val")) {
-    server.send(400, "text/plain", "Missing args");
-    return;
-  }
-  int val = server.arg("val").toInt();
-  
-  appConfig.brightness = val;
-  FastLED.setBrightness(val);
-  FastLED.show();
-
-  server.send(200, "text/plain", "OK");
-}
- 
-void handleSetMode() {
-  if (!server.hasArg("m")) {
-    server.send(400, "text/plain", "Missing args");
-    return;
-  }
-  String m = server.arg("m");
-  
-  if (m == "static") currentMode = MODE_STATIC;
-  else if (m == "rainbow") currentMode = MODE_RAINBOW;
-  else if(m == "ambilight") {
-    currentMode = MODE_AMBILIGHT;
-    delay(100);
-  }
-  else if (m == "off") {
-    currentMode = MODE_OFF;
-    FastLED.clear();
-    FastLED.show();
-  }
-  server.send(200, "text/plain", "OK");
-}
-
-void handleNotFound() {
-  server.send(404, "text/plain", "Not found");
-}
-
-// --- Setup ---
+WebController webCtrl(mainLeds);
 
 void setup() {
-  Serial.setRxBufferSize(1028); 
-  Serial.begin(115200); 
-  Serial.setTimeout(50);
+  Serial.setRxBufferSize(1024);
 
-  appConfig.loadConfig();
+  Serial.begin(115200);
+  Serial.setTimeout(1);
 
-  if (appConfig.baud_rate != 115200) {
+  AppConfig& cfg = AppConfig::get();
+  cfg.loadConfig();  
+
+  if (cfg.baud_rate != 115200) {
     Serial.flush();
-    Serial.updateBaudRate(appConfig.baud_rate);
+    Serial.updateBaudRate(cfg.baud_rate);
     delay(100);
   }
-  
-  ledsSetup();
 
-  WiFi.mode(WIFI_STA);
-  WiFi.setSleep(false);
-  WiFi.begin(appConfig.wifi_ssid, appConfig.wifi_pass);
+  Serial.println("\n--- Ambilight System Starting ---");
 
-  Serial.print("Connecting to WiFi: ");
-  Serial.println(appConfig.wifi_ssid);
-
-  uint8_t retries = 0;
-  while (WiFi.status() != WL_CONNECTED && retries < 20) { 
-    delay(500);
-    Serial.print("."); 
-    retries++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi Connected: " + WiFi.localIP().toString());
-  } else {
-    Serial.println("\nWiFi Connection Failed!");
-  }
-   
-  if (MDNS.begin(appConfig.hostname)) {
-    Serial.println("mDNS started: http://" + String(appConfig.hostname) + ".local");
-  }
-
-  server.on("/", handleRoot);
-  server.on("/set", handleSetColor);
-  server.on("/brightness", handleSetBrightness);
-  server.on("/mode", handleSetMode);
-  server.onNotFound(handleNotFound);
-
-  server.begin();
+  mainLeds.begin();
+  webCtrl.begin();
 }
 
-// --- Main Loop ---
-
 void loop() {
-  uint16_t numLeds = appConfig.num_leds;
-
-  if (currentMode == MODE_AMBILIGHT) {
-    runAmbilight(numLeds);
-
-    uint8_t smooth = appConfig.smoothing_speed;
-
-    for (int i = 0; i < numLeds; i++)
-    {
-      nblend(leds[i], targetLeds[i], smooth);
-    }
-    FastLED.show();
-
-    static unsigned long lastWifiCheck = 0;
-    if (millis() - lastWifiCheck > 500) {
-      server.handleClient();
-      lastWifiCheck = millis();
-    }
-  }
-  else {
-    server.handleClient();
-    switch (currentMode) {
-      case MODE_STATIC:
-        break;
-      case MODE_RAINBOW:
-        runRainbow(numLeds);
-        break;
-      case MODE_OFF:
-        break;
-    }
-    delay(2);
-  }
+  mainLeds.update();
+  webCtrl.handleClient();
 }

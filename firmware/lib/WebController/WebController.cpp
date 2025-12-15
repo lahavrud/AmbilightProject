@@ -5,8 +5,8 @@
 #include <LittleFS.h>
 #include <Arduino.h>
 
-WebController::WebController() : server(80) {
-
+WebController::WebController(LedController& ledCtrl) :
+    server(80), leds(ledCtrl) {
 }
 
 void WebController::begin() {
@@ -67,24 +67,45 @@ void WebController::handleRoot() {
 }
 
 void WebController::handleSetColor() {
-    Serial.println("Got Color Request!"); 
-    
-    if (server.hasArg("r")) {
+    if (server.hasArg("r") && server.hasArg("g") && server.hasArg("b")) {
         int r = server.arg("r").toInt();
-        Serial.print("R: "); Serial.println(r);
+        int g = server.arg("g").toInt();
+        int b = server.arg("b").toInt();
+
+        leds.setStaticColor(r, g, b);
+
+        Serial.printf("Set Color: %d,%d,%d\n", r, g, b);
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing RGB");
     }
-    
-    server.send(200, "text/plain", "OK");
 }
 
 void WebController::handleSetBrightness() {
-    Serial.println("Got Brightness Request!");
-    server.send(200, "text/plain", "OK");
+    if (server.hasArg("val")) {
+        int val = server.arg("val").toInt();
+
+        leds.setBrightness(val);
+        AppConfig::get().brightness = val;
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing val");
+    }
 }
 
 void WebController::handleSetMode() {
-    Serial.println("Got Mode Request!");
-    server.send(200, "text/plain", "OK");
+    if (server.hasArg("m")) {
+        String m = server.arg("m");
+        
+        if (m == "static") leds.setMode(MODE_STATIC);
+        else if (m == "rainbow") leds.setMode(MODE_RAINBOW);
+        else if (m == "ambilight") leds.setMode(MODE_AMBILIGHT);
+        else if (m == "off") leds.setMode(MODE_OFF);
+
+        server.send(200, "text/plain", "OK");
+    } else {
+        server.send(400, "text/plain", "Missing mode");
+    }
 }
 
 void WebController::handleNotFound() {
