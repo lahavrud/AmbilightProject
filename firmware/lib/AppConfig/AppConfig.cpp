@@ -59,3 +59,18 @@ void AppConfig::loadConfig() {
     file.close();
     Serial.println("Config loaded successfully");
 }
+
+String AppConfig::getConfigJson() {
+    JsonDocument doc;
+    doc["num_leds"] = num_leds;
+    doc["brightness"] = brightness;
+    doc["max_milliamps"] = max_milliamps;
+    doc["baud_rate"] = baud_rate;
+    doc["wifi_ssid"] = wifi_ssid;
+    doc["hostname"] = hostname;
+    
+    String output;
+    serializeJson(doc, output);
+
+    return output; 
+}

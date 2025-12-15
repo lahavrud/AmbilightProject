@@ -2,12 +2,14 @@
 #define APP_CONFIG_H
 
 #include <Arduino.h>
+#include <ArduinoJson.h>
 
 class AppConfig {
 public:
     static AppConfig& get();
 
     void loadConfig();
+    String getConfigJson();
 
     // Network
     char hostname[32];

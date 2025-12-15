@@ -44,6 +44,7 @@ void WebController::begin() {
 
     // Routes
     server.on("/", [this](){ handleRoot(); });
+    server.on("/config", HTTP_GET, [this](){ handleGetConfig(); });
     server.on("/set", [this](){ handleSetColor(); });
     server.on("/brightness", [this](){ handleSetBrightness(); });
     server.on("/mode", [this](){ handleSetMode(); });
@@ -64,6 +65,11 @@ void WebController::handleRoot() {
     }
     server.streamFile(file, "text/html");
     file.close();
+}
+
+void WebController::handleGetConfig() {
+    String jsonResponse = AppConfig::get().getConfigJson();
+    server.send(200, "application/json", jsonResponse);
 }
 
 void WebController::handleSetColor() {
