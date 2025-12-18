@@ -100,13 +100,11 @@ class ConfigManager:
                     self.config["client"].update(remote_data["client"])
                 
                 if "network" in remote_data:
-                    # עדכון זהיר לרשת (בלי לדרוס סיסמאות אם הן חסרות)
                     if "hostname" in remote_data["network"]:
                         self.config["network"]["hostname"] = remote_data["network"]["hostname"]
                     if "wifi_ssid" in remote_data["network"]:
                         self.config["network"]["wifi_ssid"] = remote_data["network"]["wifi_ssid"]
 
-                # שמירה לדיסק כדי שיישמר לפעם הבאה
                 self._save_local_config(self.config)
                 print("[Config] Successfully synced with ESP32 and saved!")
             else:
