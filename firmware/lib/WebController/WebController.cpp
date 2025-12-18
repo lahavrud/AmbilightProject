@@ -19,10 +19,10 @@ void WebController::begin() {
     // WiFi Initiate
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
-    WiFi.begin(cfg.wifi_ssid, cfg.wifi_pass);
+    WiFi.begin(cfg.network.wifi_ssid, cfg.network.wifi_pass);
 
     Serial.print("Connecting to WiFi: ");
-    Serial.println(cfg.wifi_ssid);
+    Serial.println(cfg.network.wifi_ssid);
 
     uint8_t retries = 0;
     while (WiFi.status() != WL_CONNECTED && retries < 20) { 
@@ -38,8 +38,8 @@ void WebController::begin() {
     }
 
     // DNS
-    if (MDNS.begin(cfg.hostname)) {
-    Serial.println("mDNS started: http://" + String(cfg.hostname) + ".local");
+    if (MDNS.begin(cfg.network.hostname)) {
+    Serial.println("mDNS started: http://" + String(cfg.network.hostname) + ".local");
     }
 
     // Routes
@@ -92,7 +92,7 @@ void WebController::handleSetBrightness() {
         int val = server.arg("val").toInt();
 
         leds.setBrightness(val);
-        AppConfig::get().brightness = val;
+        AppConfig::get().hardware.brightness = val;
         Serial.printf("Set Brightness: %d", val);
         server.send(200, "text/plain", "OK");
     } else {

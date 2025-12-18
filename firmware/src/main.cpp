@@ -16,9 +16,9 @@ void setup() {
   AppConfig& cfg = AppConfig::get();
   cfg.loadConfig();  
 
-  if (cfg.baud_rate != 115200) {
+  if (cfg.hardware.baud_rate != 115200) {
     Serial.flush();
-    Serial.updateBaudRate(cfg.baud_rate);
+    Serial.updateBaudRate(cfg.hardware.baud_rate);
     delay(100);
   }
 

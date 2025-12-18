@@ -64,7 +64,7 @@ void convertFromJson(JsonVariantConst src, ClientConfig& dst) {
     dst.monitor_index = src["monitor_index"] | 1;
     dst.gamma = src["gamma"] | 2.2;
     dst.depth = src["depth"] | 100;
-    if (src.containsKey("layout")) {
+    if (src["layout"]) {
         dst.layout = src["layout"];
     }
 }
@@ -95,9 +95,9 @@ void AppConfig::loadConfig() {
         return;
     }
 
-    if (doc.containsKey("network")) network = doc["network"];
-    if (doc.containsKey("hardware")) hardware = doc["hardware"];
-    if (doc.containsKey("client")) client = doc["client"];
+    if (doc["network"]) network = doc["network"];
+    if (doc["hardware"]) hardware = doc["hardware"];
+    if (doc["client"]) client = doc["client"];
 
     Serial.println("Config loaded successfully via converters");
 }

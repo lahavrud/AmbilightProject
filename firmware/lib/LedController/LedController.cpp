@@ -13,8 +13,8 @@ void LedController::begin() {
     // Initiating FastLED
     FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, MAX_LEDS);
     FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setBrightness(cfg.brightness);
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, cfg.max_milliamps);
+    FastLED.setBrightness(cfg.hardware.brightness);
+    FastLED.setMaxPowerInVoltsAndMilliamps(5, cfg.hardware.max_milliamps);
      
     fill_solid(leds, MAX_LEDS, CRGB::Black);
     fill_solid(targetLeds, MAX_LEDS, CRGB::Black);
@@ -80,11 +80,11 @@ void LedController::processSerial() {
             case ST_READ_DATA:
                 uint8_t* rawData = (uint8_t*)targetLeds;
                 
-                if (dataBytesRead < (cfg.num_leds * 3)) {
+                if (dataBytesRead < (cfg.hardware.num_leds * 3)) {
                     rawData[dataBytesRead++] = c;
                 }
 
-                if (dataBytesRead >= (cfg.num_leds * 3)) {
+                if (dataBytesRead >= (cfg.hardware.num_leds * 3)) {
                     serialState = ST_WAIT_A; 
                 }
                 break;
@@ -96,8 +96,8 @@ void LedController::smoothLeds() {
     AppConfig& cfg = AppConfig::get();
     
     if (currentMode == MODE_AMBILIGHT) {
-        for (int i = 0; i < cfg.num_leds; i++) {
-            nblend(leds[i], targetLeds[i], cfg.smoothing_speed);
+        for (int i = 0; i < cfg.hardware.num_leds; i++) {
+            nblend(leds[i], targetLeds[i], cfg.hardware.smoothing_speed);
         }
     } else {
         // Smart Blend Logic
@@ -108,7 +108,7 @@ void LedController::runRainbow() {
     AppConfig& cfg = AppConfig::get();
     EVERY_N_MILLISECONDS(20) {
         rainbowHue++;
-        fill_rainbow(leds, cfg.num_leds, rainbowHue, 7);
+        fill_rainbow(leds, cfg.hardware.num_leds, rainbowHue, 7);
     }
 }
 
@@ -124,8 +124,8 @@ void LedController::setMode(SystemMode mode) {
 
 void LedController::setStaticColor(int r, int g, int b) {
     currentMode = MODE_STATIC;
-    fill_solid(leds, AppConfig::get().num_leds, CRGB(r, g, b));
-    fill_solid(targetLeds, AppConfig::get().num_leds, CRGB(r, g, b)); 
+    fill_solid(leds, AppConfig::get().hardware.num_leds, CRGB(r, g, b));
+    fill_solid(targetLeds, AppConfig::get().hardware.num_leds, CRGB(r, g, b)); 
 }
 
 void LedController::setBrightness(int brightness) {
