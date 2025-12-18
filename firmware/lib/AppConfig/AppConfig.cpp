@@ -1,26 +1,77 @@
 #include "AppConfig.h"
-#include <ArduinoJson.h>
 #include <LittleFS.h>
 
 AppConfig& AppConfig::get() {
     static AppConfig instance;
     return instance;
-};
-
-// Defaults
-AppConfig::AppConfig() {
-    // Network
-    strlcpy(hostname, "ambilight", sizeof(hostname));
-    wifi_ssid[0] = '\0';
-    wifi_pass[0] = '\0';
-
-    // Hardware
-    baud_rate = 115200;
-    num_leds = 60;
-    brightness = 50;
-    max_milliamps = 1500;
-    smoothing_speed = 20;
 }
+
+// ==========================================
+// ARDUINOJSON CONVERTERS
+// ==========================================
+
+// --- Network ---
+void convertToJson(const NetworkConfig& src, JsonVariant dst) {
+    dst["hostname"] = src.hostname;
+    dst["wifi_ssid"] = src.wifi_ssid;
+}
+void convertFromJson(JsonVariantConst src, NetworkConfig& dst) {
+    if (src["hostname"]) strlcpy(dst.hostname, src["hostname"], sizeof(dst.hostname));
+    if (src["wifi_ssid"]) strlcpy(dst.wifi_ssid, src["wifi_ssid"], sizeof(dst.wifi_ssid));
+    if (src["wifi_pass"]) strlcpy(dst.wifi_pass, src["wifi_pass"], sizeof(dst.wifi_pass));
+}
+
+// --- Hardware ---
+void convertToJson(const HardwareConfig& src, JsonVariant dst) {
+    dst["baud_rate"] = src.baud_rate;
+    dst["num_leds"] = src.num_leds;
+    dst["brightness"] = src.brightness;
+    dst["max_milliamps"] = src.max_milliamps;
+    dst["smoothing_speed"] = src.smoothing_speed;
+}
+void convertFromJson(JsonVariantConst src, HardwareConfig& dst) {
+    dst.baud_rate = src["baud_rate"] | 115200;
+    dst.num_leds = src["num_leds"] | 60;
+    dst.brightness = src["brightness"] | 50;
+    dst.max_milliamps = src["max_milliamps"] | 1500;
+    dst.smoothing_speed = src["smoothing_speed"] | 20;
+}
+
+// --- LedLayout ---
+void convertToJson(const LedLayout& src, JsonVariant dst) {
+    dst["left"] = src.left;
+    dst["top"] = src.top;
+    dst["right"] = src.right;
+    dst["bottom"] = src.bottom;
+}
+void convertFromJson(JsonVariantConst src, LedLayout& dst) {
+    dst.left = src["left"] | 10;
+    dst.top = src["top"] | 20;
+    dst.right = src["right"] | 10;
+    dst.bottom = src["bottom"] | 20;
+}
+
+// --- Client ---
+void convertToJson(const ClientConfig& src, JsonVariant dst) {
+    dst["com_port"] = src.com_port;
+    dst["monitor_index"] = src.monitor_index;
+    dst["gamma"] = src.gamma;
+    dst["depth"] = src.depth;
+    dst["layout"] = src.layout; 
+}
+void convertFromJson(JsonVariantConst src, ClientConfig& dst) {
+    dst.com_port = src["com_port"] | "COM3";
+    dst.monitor_index = src["monitor_index"] | 1;
+    dst.gamma = src["gamma"] | 2.2;
+    dst.depth = src["depth"] | 100;
+    if (src.containsKey("layout")) {
+        dst.layout = src["layout"];
+    }
+}
+
+// ==========================================
+// AppConfig Methods
+// ==========================================
 
 void AppConfig::loadConfig() {
     if (!LittleFS.begin()) {
@@ -28,49 +79,55 @@ void AppConfig::loadConfig() {
         return;
     }
 
-    File file = LittleFS.open("/config.json", "r");
-    if (!file) {
-        Serial.println("No config file found, using defaults");
+    if (!LittleFS.exists("/config.json")) {
+        Serial.println("No config file found, creating defaults...");
+        saveConfig();
         return;
     }
 
+    File file = LittleFS.open("/config.json", "r");
     JsonDocument doc;
     DeserializationError error = deserializeJson(doc, file);
+    file.close();
 
     if (error) {
         Serial.println("Failed to parse config file");
-        Serial.println(error.c_str());
-        file.close();
         return;
     }
 
-    /// Network
-    if (doc["network"]["hostname"]) strlcpy(hostname, doc["network"]["hostname"], sizeof(hostname));
-    if (doc["network"]["wifi_ssid"]) strlcpy(wifi_ssid, doc["network"]["wifi_ssid"], sizeof(wifi_ssid));
-    if (doc["network"]["wifi_pass"]) strlcpy(wifi_pass, doc["network"]["wifi_pass"], sizeof(wifi_pass));
+    if (doc.containsKey("network")) network = doc["network"];
+    if (doc.containsKey("hardware")) hardware = doc["hardware"];
+    if (doc.containsKey("client")) client = doc["client"];
 
-    // Hardware
-    baud_rate = doc["hardware"]["baud_rate"] | baud_rate;
-    num_leds = doc["hardware"]["num_leds"] | num_leds;
-    brightness = doc["hardware"]["brightness"] | brightness;
-    max_milliamps = doc["hardware"]["max_milliamps"] | max_milliamps;
-    smoothing_speed = doc["hardware"]["max_milliamps"] | smoothing_speed;
+    Serial.println("Config loaded successfully via converters");
+}
 
+void AppConfig::saveConfig() {
+    if (!LittleFS.begin()) return;
+
+    JsonDocument doc;
+    doc["network"] = network;
+    doc["hardware"] = hardware;
+    doc["client"] = client;
+    
+    doc["network"]["wifi_pass"] = network.wifi_pass;
+
+    File file = LittleFS.open("/config.json", "w");
+    if (serializeJson(doc, file) == 0) {
+        Serial.println("Failed to write config file");
+    } else {
+        Serial.println("Config saved");
+    }
     file.close();
-    Serial.println("Config loaded successfully");
 }
 
 String AppConfig::getConfigJson() {
     JsonDocument doc;
-    doc["num_leds"] = num_leds;
-    doc["brightness"] = brightness;
-    doc["max_milliamps"] = max_milliamps;
-    doc["baud_rate"] = baud_rate;
-    doc["wifi_ssid"] = wifi_ssid;
-    doc["hostname"] = hostname;
+    doc["network"] = network;
+    doc["hardware"] = hardware;
+    doc["client"] = client;
     
     String output;
     serializeJson(doc, output);
-
-    return output; 
+    return output;
 }
