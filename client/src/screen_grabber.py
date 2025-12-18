@@ -5,7 +5,7 @@ from PIL import Image
 class ScreenGrabber:
     def __init__(self, config_manager):
         self.cfg = config_manager
-        self.sct = mss.mss()
+        self.sct = None
         self.gamma_table = None
         
         self.reload_config()
@@ -51,6 +51,10 @@ class ScreenGrabber:
     def get_frame_bytes(self):
         """"""
         try:
+            # Initial sct in the current thread
+            if self.sct is None:
+                self.sct = mss.mss()
+
             # Monitor availibiliy
             if self.monitor_idx >= len(self.sct.monitors):
                 print(f"[Screen] Monitor {self.monitor_idx} not found, using 1")
