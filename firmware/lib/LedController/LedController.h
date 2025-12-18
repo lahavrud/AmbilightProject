@@ -6,7 +6,6 @@
 
 // Will be passed by AppConfig once i figure it out
 #define LED_PIN     16
-#define MAX_LEDS    800
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 
@@ -19,9 +18,11 @@ enum SystemMode {
 
 class LedController {
 private:
-    CRGB leds[MAX_LEDS];
-    CRGB targetLeds[MAX_LEDS]; // For smoothing effect
-    
+    CRGB* leds = nullptr;
+    CRGB* targetLeds = nullptr;
+
+    uint16_t numLeds;
+
     SystemMode currentMode;
     uint8_t rainbowHue;
     unsigned long lastUpdate; 
@@ -33,15 +34,18 @@ private:
     };
     SerialState serialState;
     uint8_t tempHi, tempLo, tempChk;
-    int dataBytesRead; // counter for incoming already read bytes 
+    uint16_t dataBytesRead; // counter for incoming already read bytes 
 
     // Helper functions
     void processSerial();
     void runRainbow();
     void smoothLeds();
+    void allocateMemory(uint16_t count);
 
 public:
     LedController();
+    ~LedController();
+    
     void begin();
     void update(); 
     

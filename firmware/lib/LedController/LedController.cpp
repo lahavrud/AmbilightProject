@@ -5,19 +5,60 @@ LedController::LedController() {
     rainbowHue = 0;
     serialState = ST_WAIT_A;
     dataBytesRead = 0;
+    
+    leds = nullptr;
+    targetLeds = nullptr;
+    numLeds = 0;
+}
+
+LedController::~LedController() {
+    if (leds) {
+        delete [] leds;
+        leds = nullptr;
+    }
+    if (targetLeds) {
+        delete [] targetLeds;
+        targetLeds = nullptr;
+    }
+}
+
+void LedController::allocateMemory(uint16_t count) {
+    if (leds) delete[] leds;
+    if (targetLeds) delete[] targetLeds;
+
+    numLeds = count;
+
+    leds = new CRGB[numLeds];
+    targetLeds = new CRGB[numLeds];
+
+    fill_solid(leds, numLeds, CRGB::Black);
+    fill_solid(targetLeds, numLeds, CRGB::Black);
 }
 
 void LedController::begin() {
     AppConfig& cfg = AppConfig::get();
     
+    allocateMemory(cfg.hardware.num_leds);
+
     // Initiating FastLED
-    FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, MAX_LEDS);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setBrightness(cfg.hardware.brightness);
     FastLED.setMaxPowerInVoltsAndMilliamps(5, cfg.hardware.max_milliamps);
-     
-    fill_solid(leds, MAX_LEDS, CRGB::Black);
-    fill_solid(targetLeds, MAX_LEDS, CRGB::Black);
+
+    String order = String(cfg.hardware.color_order);
+    order.toUpperCase();
+    if (order == "RGB") {
+        FastLED.addLeds<LED_TYPE, LED_PIN, RGB>(leds, numLeds);
+        Serial.println("Leds init: RGB");
+    }
+    else if (order == "BRG") {
+        FastLED.addLeds<LED_TYPE, LED_PIN, BRG>(leds, numLeds);
+        Serial.println("Leds init: BRG");
+    }
+    else {
+        FastLED.addLeds<LED_TYPE, LED_PIN, GRB>(leds, numLeds);
+        Serial.println("Leds init: GRB");
+    }
     FastLED.show();
 }
 
@@ -37,7 +78,6 @@ void LedController::update() {
 void LedController::processSerial() {
     AppConfig& cfg = AppConfig::get();
     
-    // כל עוד יש מידע בבאפר, נקרא אותו אחד-אחד
     while (Serial.available() > 0) {
         uint8_t c = Serial.read();
 
@@ -80,11 +120,11 @@ void LedController::processSerial() {
             case ST_READ_DATA:
                 uint8_t* rawData = (uint8_t*)targetLeds;
                 
-                if (dataBytesRead < (cfg.hardware.num_leds * 3)) {
+                if (dataBytesRead < (numLeds * 3)) {
                     rawData[dataBytesRead++] = c;
                 }
 
-                if (dataBytesRead >= (cfg.hardware.num_leds * 3)) {
+                if (dataBytesRead >= (numLeds * 3)) {
                     serialState = ST_WAIT_A; 
                 }
                 break;
@@ -96,7 +136,7 @@ void LedController::smoothLeds() {
     AppConfig& cfg = AppConfig::get();
     
     if (currentMode == MODE_AMBILIGHT) {
-        for (int i = 0; i < cfg.hardware.num_leds; i++) {
+        for (int i = 0; i < numLeds; i++) {
             nblend(leds[i], targetLeds[i], cfg.hardware.smoothing_speed);
         }
     } else {
@@ -117,15 +157,15 @@ void LedController::runRainbow() {
 void LedController::setMode(SystemMode mode) {
     currentMode = mode;
     if (mode == MODE_OFF) {
-        fill_solid(leds, MAX_LEDS, CRGB::Black);
-        fill_solid(targetLeds, MAX_LEDS, CRGB::Black);
+        fill_solid(leds, numLeds, CRGB::Black);
+        fill_solid(targetLeds, numLeds, CRGB::Black);
     }
 }
 
 void LedController::setStaticColor(int r, int g, int b) {
     currentMode = MODE_STATIC;
-    fill_solid(leds, AppConfig::get().hardware.num_leds, CRGB(r, g, b));
-    fill_solid(targetLeds, AppConfig::get().hardware.num_leds, CRGB(r, g, b)); 
+    fill_solid(leds, numLeds, CRGB(r, g, b));
+    fill_solid(targetLeds, numLeds, CRGB(r, g, b)); 
 }
 
 void LedController::setBrightness(int brightness) {

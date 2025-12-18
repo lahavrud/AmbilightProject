@@ -28,6 +28,7 @@ void convertToJson(const HardwareConfig& src, JsonVariant dst) {
     dst["brightness"] = src.brightness;
     dst["max_milliamps"] = src.max_milliamps;
     dst["smoothing_speed"] = src.smoothing_speed;
+    dst["color_order"] = src.color_order;
 }
 void convertFromJson(JsonVariantConst src, HardwareConfig& dst) {
     dst.baud_rate = src["baud_rate"] | 115200;
@@ -35,6 +36,9 @@ void convertFromJson(JsonVariantConst src, HardwareConfig& dst) {
     dst.brightness = src["brightness"] | 50;
     dst.max_milliamps = src["max_milliamps"] | 1500;
     dst.smoothing_speed = src["smoothing_speed"] | 20;
+    if (src["color_order"]) {
+        strlcpy(dst.color_order, src["color_order"], sizeof(dst.color_order));
+    }
 }
 
 // --- LedLayout ---

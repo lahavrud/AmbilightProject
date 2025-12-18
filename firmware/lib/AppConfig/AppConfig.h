@@ -17,6 +17,7 @@ struct HardwareConfig {
     uint8_t brightness = 50;
     uint16_t max_milliamps = 1500;
     uint8_t smoothing_speed = 20;
+    char color_order[4] = "GRB";
 };
 
 struct LedLayout {
