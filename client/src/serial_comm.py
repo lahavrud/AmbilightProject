@@ -41,7 +41,10 @@ class SerialCommunicator:
                 return 
 
         # Ada Light Protocol
-        count = len(color_data) - 1
+        num_leds = len(color_data) // 3
+        if num_leds == 0: return
+
+        count = num_leds - 1
         
         # Split Count to hi-byte and lo-byte
         count_hi = (count >> 8) & 0xFF

@@ -13,3 +13,4 @@ Thumbs.db
 build/
 dist/
 firmware/data/config.json
+client/config.json
