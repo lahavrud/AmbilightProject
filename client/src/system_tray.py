@@ -12,7 +12,7 @@ class SystemTray:
         """Load icon safely with fallback"""
         try:
             if getattr(sys, 'frozen', False):
-                base_path = sys._MEIPASS
+                base_path = sys._MEIPASS # type: ignore
             else:
                 base_path = os.path.dirname(os.path.abspath(__file__))
                 base_path = os.path.dirname(base_path) # Go up one level from src
@@ -42,3 +42,7 @@ class SystemTray:
         
         print("[Tray] System Tray started.")
         self.icon.run()
+    
+    def stop(self):
+        if self.icon:
+            self.icon.stop()
