@@ -2,33 +2,25 @@
 #include "AppConfig.h"
 #include "LedController.h"
 #include "WebController.h"
+#include "SerialManager.h"
 
 LedController mainLeds;
-
 WebController webCtrl(mainLeds);
+SerialManager serialMgr(mainLeds);
 
 void setup() {
-  Serial.setRxBufferSize(1024);
-
-  Serial.begin(115200);
-  Serial.setTimeout(1);
+  Serial.setRxBufferSize(2048);
 
   AppConfig& cfg = AppConfig::get();
   cfg.loadConfig();  
 
-  if (cfg.hardware.baud_rate != 115200) {
-    Serial.flush();
-    Serial.updateBaudRate(cfg.hardware.baud_rate);
-    delay(100);
-  }
-
-  Serial.println("\n--- Ambilight System Starting ---");
-
   mainLeds.begin();
+  serialMgr.begin();
   webCtrl.begin();
 }
 
 void loop() {
-  mainLeds.update();
+  serialMgr.process();
   webCtrl.handleClient();
+  mainLeds.update();
 }

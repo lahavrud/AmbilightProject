@@ -3,9 +3,6 @@
 LedController::LedController() {
     currentMode = MODE_STATIC;
     rainbowHue = 0;
-    serialState = ST_WAIT_A;
-    dataBytesRead = 0;
-    
     leds = nullptr;
     targetLeds = nullptr;
     numLeds = 0;
@@ -63,10 +60,7 @@ void LedController::begin() {
 }
 
 void LedController::update() {
-    if (currentMode == MODE_AMBILIGHT) {
-        processSerial();
-    } 
-    else if (currentMode == MODE_RAINBOW) {
+    if (currentMode == MODE_RAINBOW) {
         runRainbow();
     }
 
@@ -74,62 +68,16 @@ void LedController::update() {
     FastLED.show();
 }
 
-// State-Machine
-void LedController::processSerial() {
-    AppConfig& cfg = AppConfig::get();
-    
-    while (Serial.available() > 0) {
-        uint8_t c = Serial.read();
+CRGB* LedController::getTargetBuffer() {
+    return targetLeds;
+}
 
-        switch (serialState) {
-            case ST_WAIT_A:
-                if (c == 'A') serialState = ST_WAIT_d;
-                break;
-            
-            case ST_WAIT_d:
-                if (c == 'd') serialState = ST_WAIT_a;
-                else serialState = ST_WAIT_A; // טעות, חוזרים להתחלה
-                break;
+uint16_t LedController::getNumLeds() {
+    return numLeds;
+}
 
-            case ST_WAIT_a:
-                if (c == 'a') serialState = ST_WAIT_HI;
-                else serialState = ST_WAIT_A;
-                break;
-
-            case ST_WAIT_HI:
-                tempHi = c;
-                serialState = ST_WAIT_LO;
-                break;
-
-            case ST_WAIT_LO:
-                tempLo = c;
-                serialState = ST_WAIT_CHK;
-                break;
-
-            case ST_WAIT_CHK:
-                tempChk = c;
-                // checksum
-                if ((tempHi ^ tempLo ^ 0x55) == tempChk) {
-                    dataBytesRead = 0;
-                    serialState = ST_READ_DATA;
-                } else {
-                    serialState = ST_WAIT_A;
-                }
-                break;
-
-            case ST_READ_DATA:
-                uint8_t* rawData = (uint8_t*)targetLeds;
-                
-                if (dataBytesRead < (numLeds * 3)) {
-                    rawData[dataBytesRead++] = c;
-                }
-
-                if (dataBytesRead >= (numLeds * 3)) {
-                    serialState = ST_WAIT_A; 
-                }
-                break;
-        }
-    }
+void LedController::reloadConfig() {
+    begin();
 }
 
 void LedController::smoothLeds() {
