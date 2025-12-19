@@ -35,6 +35,22 @@ class AmbilightApp:
 
     # --- Public Methods for GUI Control ---
 
+    def set_mode(self, mode_name):
+        """
+        Changes the mode on the ESP32 (e.g., 'rainbow', 'static', 'ambilight')
+        """
+        if mode_name == "ambilight":
+            self.is_running = True
+            cmd = {"cmd": "mode", "value": "ambilight"}
+        
+        else:
+            self.is_running = False
+            time.sleep(0.1) 
+            
+            cmd = {"cmd": "mode", "value": mode_name}
+
+        self.serial_comm.send_command(cmd)
+        
     def toggle(self):
         """Toggles the running state on/off"""
         self.is_running = not self.is_running

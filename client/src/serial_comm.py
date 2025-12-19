@@ -1,6 +1,7 @@
 import serial
 import time
 import struct
+import json
 
 class SerialCommunicator:
     def __init__(self, port, baud_rate):
@@ -65,6 +66,23 @@ class SerialCommunicator:
                 self.ser.close()
             except:
                 pass
+
+    def send_command(self, command_dict):
+        """Sends a JSON command using 'Cmd' protocol.
+           Packet foramt: [Cmd] [JSON String] [\n]"""
+        if not self.is_connected:
+            self._connect()
+            if not self.is_connected:
+                return
+        
+        try:
+            json_str = json.dumps(command_dict)
+            packet = b"Cmd" + json_str.encode('utf-8') + b"\n"
+
+            self.ser.write(packet)
+            print(f"[Serial] Sent Command: {json_str}")
+        except Exception as e:
+            print(f"[Serial] Failed to send command: {e}")
 
     def close(self):
         if self.ser:
