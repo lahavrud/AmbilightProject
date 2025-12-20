@@ -89,7 +89,7 @@ void WebController::handleGetStatus() {
     else if (currentMode == MODE_STATIC) modeStr = "static";
     doc["mode"] = modeStr;
     
-    int brightPerc = map(leds.getBrightness(), 0, 255, 0, 100);
+    int brightPerc = leds.getBrightness();
     doc["brightness"] = brightPerc;
 
     CRGB c = leds.getStaticColor();
@@ -124,7 +124,8 @@ void WebController::handleSetBrightness() {
 
         leds.setBrightness(val);
         AppConfig::get().hardware.brightness = val;
-        Serial.printf("Set Brightness: %d", val);
+        Serial.print("Set Brightness: ");
+        Serial.println(val);
         server.send(200, "text/plain", "OK");
     } else {
         server.send(400, "text/plain", "Missing val");
