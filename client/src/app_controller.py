@@ -4,25 +4,19 @@ from .config_manager import ConfigManager
 from .screen_grabber import ScreenGrabber
 from .serial_comm import SerialCommunicator
 from .system_tray import SystemTray
-
+from .models import AppMode
 class AmbilightApp:
     """
-    Main Application Controller.
-    Manages the orchestration of:
-    1. Hardware communication (Serial/ESP32).
-    2. Screen capturing logic.
-    3. Thread management (Worker & System Tray).
-    4. State management.
+    Main Application Controller (State Machine Version).
     """
 
     def __init__(self):
-        # --- 1. Component Initialization ---
+        # --- Component Initialization ---
         print("[Main] Initializing ConfigManager...")
         self.config_mgr = ConfigManager()
         self.config_mgr.load_local_config()
         self.config_mgr.sync_with_esp()
 
-        # Load specific configurations
         hw_conf = self.config_mgr.config["hardware"]
         client_conf = self.config_mgr.config["client"]
         
@@ -35,127 +29,136 @@ class AmbilightApp:
         print("[Main] Initializing Screen Grabber...")
         self.grabber = ScreenGrabber(self.config_mgr)
 
-        # --- 2. State Flags & Thread Handles ---
-        self.is_running = True      # active flag: controls data transmission
-        self.should_exit = False    # global exit flag: controls app lifecycle
-        
-        self.led_thread = None      # Handle for the LED processing thread
-        self.tray_thread = None     # Handle for the System Tray thread
-        self.tray = None            # Instance of the System Tray
+        # --- State Management ---
+        self.current_mode = AppMode.OFF  # The Single Source of Truth
+        self.should_exit = False
+        self._observers = []             # List of GUI listeners
+
+        self.led_thread = None
+        self.tray_thread = None
+        self.tray = None
+
+    # ==========================================
+    #           Observer Pattern
+    # ==========================================
+    
+    def register_observer(self, callback_func):
+        """GUI/Tray register here to get updates when mode changes"""
+        self._observers.append(callback_func)
+
+    def _notify_observers(self):
+        """Notify all listeners that state has changed"""
+        for callback in self._observers:
+            try:
+                callback(self.current_mode)
+            except Exception as e:
+                print(f"[Observer Error] {e}")
 
     # ==========================================
     #           Thread Management
     # ==========================================
 
     def start_worker_thread(self):
-        """
-        Initializes and starts the main logic thread (LED processing) 
-        in the background. Includes a check to prevent duplicate threads.
-        """
         if self.led_thread is None or not self.led_thread.is_alive():
             self.led_thread = threading.Thread(target=self.worker_logic)
-            self.led_thread.daemon = True  # Thread dies when main app closes
+            self.led_thread.daemon = True
             self.led_thread.start()
             print("[Main] Worker (LEDs) thread started.")
 
     def start_tray_thread(self):
-        """
-        Initializes and starts the System Tray icon in a separate,
-        non-blocking thread.
-        """
         self.tray = SystemTray(self)
         self.tray_thread = threading.Thread(target=self.tray.run)
-        self.tray_thread.daemon = True  # Thread dies when main app closes
+        self.tray_thread.daemon = True
         self.tray_thread.start()
         print("[Main] System Tray thread started.")
 
     def stop_all(self):
-        """
-        Graceful shutdown sequence.
-        Signals all threads to stop and releases resources.
-        """
         print("[Main] Stopping all threads...")
-        self.should_exit = True  # Signal worker loop to break
-        
+        self.should_exit = True
         if self.tray:
-            self.tray.stop()     # Signal tray icon to stop
+            self.tray.stop()
 
     # ==========================================
-    #           Core Logic (The Engine)
+    #           Core Logic (State Aware)
     # ==========================================
 
     def worker_logic(self):
-        """
-        The main operational loop running in a background thread.
-        Responsibilities:
-        1. Capture screen data via ScreenGrabber.
-        2. Process and send data via SerialCommunicator.
-        3. Handle 'Pause' state (send black frame).
-        """
         print("[Worker] Logic loop started.")
         
-        # Pre-calculate a black frame for the "Off/Paused" state
         total_leds = self.config_mgr.get_nested("hardware", "num_leds") or 60
         black_frame = b'\x00' * (total_leds * 3)
         lights_physically_off = False
 
         while not self.should_exit:
-            if self.is_running:
-                # 1. Capture and Process
+            if self.current_mode == AppMode.AMBILIGHT:
                 frame = self.grabber.get_frame_bytes()
-                
-                # 2. Transmit
                 if frame:
                     self.serial_comm.send_colors(frame)
                     lights_physically_off = False
             
             else:
-                # Handle Paused State
-                # Send black frame once to turn off LEDs, then sleep
+                # In any other mode (OFF, RAINBOW, STATIC), PC stops sending data
                 if not lights_physically_off:
                     self.serial_comm.send_colors(black_frame)
                     lights_physically_off = True
                 
-                # Deep sleep to conserve CPU when paused
                 time.sleep(0.5) 
         
-        # Cleanup on exit
         self.serial_comm.send_colors(black_frame)
         self.serial_comm.close()
         print("[Worker] Logic loop finished.")
 
     # ==========================================
-    #           External Control Methods
+    #           External Control (State Machine)
     # ==========================================
 
-    def set_mode(self, mode_name):
+    def set_mode(self, new_mode: AppMode, **kwargs):
         """
-        Switches the operation mode.
-        If 'ambilight': Activates PC-side processing.
-        If other (e.g., 'rainbow'): Stops PC processing and sends JSON command to firmware.
+        Handles mode switching logic.
+        1. Determines the correct JSON command for ESP.
+        2. Sends the command.
+        3. Updates internal state.
+        4. Notifies GUI.
         """
-        if mode_name == "ambilight":
-            self.is_running = True
-            cmd = {"cmd": "mode", "value": "ambilight"}
-        else:
-            self.is_running = False
-            # Short delay to allow the worker loop to send the last black frame
-            time.sleep(0.1) 
-            cmd = {"cmd": "mode", "value": mode_name}
+        if self.current_mode == new_mode:
+            return
 
-        self.serial_comm.send_command(cmd)
+        print(f"[App] Switching: {self.current_mode.name} -> {new_mode.name}")
         
-    def toggle(self):
-        """
-        Toggles the active state of the Ambilight processing.
-        Returns the new state as a string.
-        """
-        self.is_running = not self.is_running
-        return "ON" if self.is_running else "OFF"
+        cmd = {}
+        
+        if new_mode == AppMode.AMBILIGHT:
+            cmd = {"cmd": "mode", "value": "ambilight"}
+            
+        elif new_mode == AppMode.RAINBOW:
+            cmd = {"cmd": "mode", "value": "rainbow"}
+            
+        elif new_mode == AppMode.STATIC:
+            color = kwargs.get('color', [255, 0, 0])
+            cmd = {"cmd": "mode", "value": "static", "color": color}
+            
+        elif new_mode == AppMode.OFF:
+            cmd = {"cmd": "mode", "value": "off"}
 
+        # Send the command to ESP
+        self.serial_comm.send_command(cmd)
+
+        # Update State & Notify
+        self.current_mode = new_mode
+        self._notify_observers()
+
+    def toggle(self):
+        """Helper for Tray Icon to toggle ON/OFF"""
+        if self.current_mode == AppMode.OFF:
+            self.set_mode(AppMode.AMBILIGHT)
+            return "ON"
+        else:
+            self.set_mode(AppMode.OFF)
+            return "OFF"
+            
     def stop(self):
-        """
-        Public method called by external controllers (e.g., Tray 'Exit' button).
-        Triggers the full shutdown sequence.
-        """
+        """Called when user requests total exit (e.g., from Tray)"""
+        print("[App] Total exit requested.")
+        self.current_mode = AppMode.EXIT
+        self._notify_observers()
         self.stop_all()

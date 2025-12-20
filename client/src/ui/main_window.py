@@ -1,5 +1,5 @@
 import customtkinter as ctk
-import threading
+from ..models import AppMode
 
 class MainWindow(ctk.CTk):
     def __init__(self, app_controller):
@@ -7,77 +7,96 @@ class MainWindow(ctk.CTk):
         
         self.app = app_controller
         
-        # Basic Settings   
+        # --- Basic Settings ---
         self.title("Ambilight Studio")
         self.geometry("600x500")
         ctk.set_appearance_mode("Dark")
         ctk.set_default_color_theme("blue")
 
+        # Dictionary to store button references for easy styling
+        self.mode_buttons = {}
+
         self._setup_ui()
+
+        # --- Observer Registration ---
+        # We tell the app: "Call sync_ui_to_mode whenever the state changes"
+        self.app.register_observer(self.sync_ui_to_mode)
         
-        self.update_status_lights()
+        # Initial sync to reflect current state on startup
+        self.sync_ui_to_mode(self.app.current_mode)
 
     def _setup_ui(self):
         # Title
         self.lbl_title = ctk.CTkLabel(self, text="Ambilight Control", font=("Roboto", 24, "bold"))
         self.lbl_title.pack(pady=20)
 
-        # START/STOP Button
-        self.btn_toggle = ctk.CTkButton(
+        # Main Power Button (Toggles between OFF and last active mode/Ambilight)
+        self.btn_power = ctk.CTkButton(
             self, 
-            text="STOP" if self.app.is_running else "START",
-            command=self.on_toggle_click,
+            text="POWER OFF",
+            command=self.app.toggle, # Uses the simple toggle we built
             width=200,
             height=50,
-            font=("Roboto", 18),
-            fg_color="red" if self.app.is_running else "green",
-            hover_color="darkred" if self.app.is_running else "darkgreen"
+            font=("Roboto", 18, "bold"),
+            fg_color="#444444",
+            hover_color="#333333"
         )
-        self.btn_toggle.pack(pady=20)
+        self.btn_power.pack(pady=20)
 
         # Modes Zone
         self.frame_modes = ctk.CTkFrame(self)
         self.frame_modes.pack(pady=20, padx=20, fill="x")
 
-        ctk.CTkLabel(self.frame_modes, text="Lighting Modes:").pack(pady=5)
+        ctk.CTkLabel(self.frame_modes, text="Lighting Modes:", font=("Roboto", 14)).pack(pady=10)
         
-        # Modes Buttons
-        modes = [("Screen Mirror", "ambilight"), ("Rainbow", "rainbow"), ("Static Red", "static_red")]
-        for text, mode in modes:
-            ctk.CTkButton(
+        # Define Modes
+        modes_config = [
+            ("Screen Mirror", AppMode.AMBILIGHT),
+            ("Rainbow", AppMode.RAINBOW),
+            ("Static Red", AppMode.STATIC)
+        ]
+
+        # Create buttons dynamically
+        for text, mode in modes_config:
+            btn = ctk.CTkButton(
                 self.frame_modes, 
                 text=text, 
-                command=lambda m=mode: self.on_mode_click(m)
-            ).pack(side="left", padx=10, pady=10, expand=True)
+                command=lambda m=mode: self.app.set_mode(m),
+                fg_color="#3b3b3b" # Default dark gray
+            )
+            btn.pack(side="left", padx=10, pady=20, expand=True)
+            self.mode_buttons[mode] = btn
 
-    def on_toggle_click(self):
-        # Toggle Logic
-        new_state = self.app.toggle() 
-        self.update_status_lights()
+    def sync_ui_to_mode(self, current_mode: AppMode):
+        """
+        The Observer Callback.
+        Updates button colors and text based on the active state.
+        """
+        print(f"[GUI] Syncing UI to mode: {current_mode.name}")
 
-    def on_mode_click(self, mode):
-        print(f"[GUI] Switching to mode: {mode}")
-        
-        if mode == "ambilight":
-            self.app.set_mode("ambilight")
-        elif mode == "rainbow":
-            self.app.set_mode("rainbow")
-        elif mode == "static_red":
-            self.app.serial_comm.send_command({
-                "cmd": "mode", 
-                "value": "static", 
-                "color": [255, 0, 0]
-            })
-            self.app.is_running = False
-        
-        self.update_status_lights()
+        # 1. Exit Window
+        if current_mode == AppMode.EXIT:
+            print("[GUI] Received Exit signal, closing window...")
+            self.quit()
+            return
 
-    def update_status_lights(self):
-        if self.app.is_running:
-            self.btn_toggle.configure(text="STOP AMBILIGHT", fg_color="red", hover_color="darkred")
+        # 2. Update Mode Buttons
+        for mode, btn in self.mode_buttons.items():
+            if mode == current_mode:
+                # Highlight active mode
+                btn.configure(fg_color="#1f538d", border_width=2, border_color="white")
+            else:
+                # Reset others
+                btn.configure(fg_color="#3b3b3b", border_width=0)
+
+        # 3. Update Power Button appearance
+        if current_mode == AppMode.OFF:
+            self.btn_power.configure(text="TURN ON", fg_color="green", hover_color="darkgreen")
         else:
-            self.btn_toggle.configure(text="START AMBILIGHT", fg_color="green", hover_color="darkgreen")
+            self.btn_power.configure(text="TURN OFF", fg_color="red", hover_color="darkred")
 
     def on_close(self):
-        self.app.stop()
+        """Clean shutdown protocol"""
+        print("[GUI] Closing window...")
+        self.app.stop_all()
         self.destroy()

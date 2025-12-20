@@ -2,11 +2,24 @@ import pystray
 from PIL import Image
 import os
 import sys
+from .models import AppMode
 
 class SystemTray:
     def __init__(self, app_controller):
         self.app = app_controller
         self.icon = None
+        
+        # --- Observer Registration ---
+        self.app.register_observer(self.on_mode_changed)
+
+    def on_mode_changed(self, new_mode: AppMode):
+        """
+        Callback triggered by the AppController whenever the state changes.
+        """
+        print(f"[Tray] Observer notified: App is now in {new_mode.name}")
+        
+        # NOTE: Later we can use self.icon.update_menu() here 
+        # to show a checkmark next to the active mode.
 
     def _get_icon_image(self):
         """Load icon safely with fallback"""
@@ -15,7 +28,7 @@ class SystemTray:
                 base_path = sys._MEIPASS # type: ignore
             else:
                 base_path = os.path.dirname(os.path.abspath(__file__))
-                base_path = os.path.dirname(base_path) # Go up one level from src
+                base_path = os.path.dirname(base_path)
 
             icon_path = os.path.join(base_path, "icon.png")
             return Image.open(icon_path)
@@ -24,23 +37,29 @@ class SystemTray:
             return Image.new('RGB', (64, 64), color='red')
 
     def _on_toggle(self, icon, item):
-        new_state = self.app.toggle()
-        print(f"[Tray] Toggled. New State: {new_state}")
+        """Triggered when user clicks 'Toggle' in the tray menu"""
+        # The controller will change the state and then notify us back 
+        # via the 'on_mode_changed' callback.
+        new_state_str = self.app.toggle() 
+        print(f"[Tray] Toggle action requested. App replied: {new_state_str}")
 
     def _on_exit(self, icon, item):
-        print("[Tray] Exit requested.")
+        print("[Tray] Exit requested via menu.")
         self.app.stop()
         icon.stop()
 
     def run(self):
         image = self._get_icon_image()
         
+        # We can define more menu items now that we have AppMode
         self.icon = pystray.Icon("Ambilight", image, menu=pystray.Menu(
             pystray.MenuItem("Toggle On/Off", self._on_toggle),
+            pystray.MenuItem("Ambilight Mode", lambda: self.app.set_mode(AppMode.AMBILIGHT)),
+            pystray.MenuItem("Rainbow Mode", lambda: self.app.set_mode(AppMode.RAINBOW)),
             pystray.MenuItem("Exit", self._on_exit)
         ))
         
-        print("[Tray] System Tray started.")
+        print("[Tray] System Tray started and waiting for updates.")
         self.icon.run()
     
     def stop(self):
