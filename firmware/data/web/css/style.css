@@ -1,0 +1,47 @@
+body {
+  font-family: Arial, sans-serif;
+  text-align: center;
+  background-color: #001f3f;
+  color: white;
+  padding: 20px;
+}
+h1 {
+  color: #f39c12;
+}
+.btn {
+  background-color: #444;
+  border: none;
+  color: white;
+  padding: 15px 32px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  font-size: 16px;
+  margin: 4px 2px;
+  cursor: pointer;
+  border-radius: 10px;
+  transition: transform 0.1s; /* הוספתי אנימציה קטנה ללחיצה */
+}
+.btn:active {
+  background-color: #666;
+  transform: scale(0.95);
+}
+.red { background-color: #e74c3c; }
+.green { background-color: #2ecc71; }
+.blue { background-color: #3498db; }
+.rainbow {
+  background-image: linear-gradient(
+    to right, red, orange, yellow, green, blue, indigo, violet
+  );
+}
+.ambilight { background-color: #9b59b6; }
+.off {
+  background-color: #000;
+  border: 1px solid #555;
+}
+input[type="color"] {
+  width: 100px;
+  height: 50px;
+  border: none;
+  cursor: pointer;
+}

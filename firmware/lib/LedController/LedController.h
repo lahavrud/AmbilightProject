@@ -22,6 +22,7 @@ private:
     uint16_t numLeds;
 
     SystemMode currentMode;
+    CRGB staticColor;
     uint8_t rainbowHue;
 
     // Helper functions
@@ -41,6 +42,9 @@ public:
     uint16_t getNumLeds();
 
     SystemMode getMode();
+    uint8_t getBrightness();
+    CRGB getStaticColor();
+
     void setMode(SystemMode mode);
     void setStaticColor(int r, int g, int b);
     void setBrightness(int brightness);

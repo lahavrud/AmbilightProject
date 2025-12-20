@@ -17,6 +17,10 @@ void WebController::begin() {
         Serial.println("LittleFS Mount Failed");
     }
 
+    server.serveStatic("/", LittleFS, "/web/index.html");
+    server.serveStatic("/css", LittleFS, "/web/css/"); 
+    server.serveStatic("/js", LittleFS, "/web/js/");
+
     // WiFi Initiate
     WiFi.mode(WIFI_STA);
     WiFi.setSleep(false);
@@ -49,7 +53,7 @@ void WebController::begin() {
     server.on("/set", [this](){ handleSetColor(); });
     server.on("/brightness", [this](){ handleSetBrightness(); });
     server.on("/mode", [this](){ handleSetMode(); });
-    server.on("/get-status", HTTP_GET, [this](){ handleGetStatus(); });
+    server.on("/status", HTTP_GET, [this](){ handleGetStatus(); });
     server.onNotFound([this](){ handleNotFound(); });
     server.begin();
 }
@@ -60,7 +64,7 @@ void WebController::handleRoot() {
         Serial.println("LittleFS failed!");
         return;
     }
-    File file = LittleFS.open("/index.html", "r");
+    File file = LittleFS.open("/web/index.html", "r");
     if (!file) {
         server.send(500, "text/plain", "Index missing");
         return;
@@ -83,9 +87,17 @@ void WebController::handleGetStatus() {
     if (currentMode == MODE_AMBILIGHT) modeStr = "ambilight";
     else if (currentMode == MODE_RAINBOW) modeStr = "rainbow";
     else if (currentMode == MODE_STATIC) modeStr = "static";
-
     doc["mode"] = modeStr;
     
+    int brightPerc = map(leds.getBrightness(), 0, 255, 0, 100);
+    doc["brightness"] = brightPerc;
+
+    CRGB c = leds.getStaticColor();
+
+    char hexString[8];
+    sprintf(hexString, "#%02X%02X%02x", c.r, c.g, c.b);
+    doc["colorHex"] = hexString;
+
     String response;
     serializeJson(doc, response);
     server.send(200, "application/json", response);
@@ -135,6 +147,8 @@ void WebController::handleSetMode() {
 }
 
 void WebController::handleNotFound() {
+    Serial.print("Error 404: Client requested: ");
+    Serial.println(server.uri());
     server.send(404, "text/plain", "Not found");
 }
 

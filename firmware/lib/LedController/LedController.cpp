@@ -2,6 +2,7 @@
 
 LedController::LedController() {
     currentMode = MODE_STATIC;
+    staticColor = CRGB::Red;
     rainbowHue = 0;
     leds = nullptr;
     targetLeds = nullptr;
@@ -105,6 +106,14 @@ SystemMode LedController::getMode() {
     return currentMode;
 }
 
+uint8_t LedController::getBrightness() {
+    return FastLED.getBrightness();
+}
+
+CRGB LedController::getStaticColor() {
+    return staticColor;
+}
+
 // Control Functions
 
 void LedController::setMode(SystemMode mode) {
@@ -116,9 +125,12 @@ void LedController::setMode(SystemMode mode) {
 }
 
 void LedController::setStaticColor(int r, int g, int b) {
+    CRGB currentStaticColor = CRGB(r, g, b);
     currentMode = MODE_STATIC;
-    fill_solid(leds, numLeds, CRGB(r, g, b));
-    fill_solid(targetLeds, numLeds, CRGB(r, g, b)); 
+    fill_solid(leds, numLeds, currentStaticColor);
+    fill_solid(targetLeds, numLeds, currentStaticColor); 
+    staticColor = currentStaticColor;
+    FastLED.show();
 }
 
 void LedController::setBrightness(int brightness) {
