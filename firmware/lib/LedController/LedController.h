@@ -40,6 +40,7 @@ public:
     CRGB* getTargetBuffer();
     uint16_t getNumLeds();
 
+    SystemMode getMode();
     void setMode(SystemMode mode);
     void setStaticColor(int r, int g, int b);
     void setBrightness(int brightness);

@@ -1,5 +1,6 @@
 #include "AppConfig.h"
 #include "WebController.h"
+#include "LedController.h"
 #include <WiFi.h>
 #include <ESPmDNS.h>
 #include <LittleFS.h>
@@ -48,6 +49,7 @@ void WebController::begin() {
     server.on("/set", [this](){ handleSetColor(); });
     server.on("/brightness", [this](){ handleSetBrightness(); });
     server.on("/mode", [this](){ handleSetMode(); });
+    server.on("/get-status", HTTP_GET, [this](){ handleGetStatus(); });
     server.onNotFound([this](){ handleNotFound(); });
     server.begin();
 }
@@ -70,6 +72,23 @@ void WebController::handleRoot() {
 void WebController::handleGetConfig() {
     String jsonResponse = AppConfig::get().getConfigJson();
     server.send(200, "application/json", jsonResponse);
+}
+
+void WebController::handleGetStatus() {
+    JsonDocument doc;
+
+    SystemMode currentMode = leds.getMode();
+    
+    String modeStr = "off";
+    if (currentMode == MODE_AMBILIGHT) modeStr = "ambilight";
+    else if (currentMode == MODE_RAINBOW) modeStr = "rainbow";
+    else if (currentMode == MODE_STATIC) modeStr = "static";
+
+    doc["mode"] = modeStr;
+    
+    String response;
+    serializeJson(doc, response);
+    server.send(200, "application/json", response);
 }
 
 void WebController::handleSetColor() {

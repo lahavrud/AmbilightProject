@@ -100,6 +100,11 @@ void LedController::runRainbow() {
     }
 }
 
+// Get Functions
+SystemMode LedController::getMode() {
+    return currentMode;
+}
+
 // Control Functions
 
 void LedController::setMode(SystemMode mode) {

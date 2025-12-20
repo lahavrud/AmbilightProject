@@ -12,6 +12,7 @@ private:
     // --- Handlers ---
     void handleRoot();
     void handleGetConfig();
+    void handleGetStatus();
     void handleSetColor();
     void handleSetBrightness();
     void handleSetMode();
