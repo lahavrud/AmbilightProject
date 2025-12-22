@@ -1,16 +1,33 @@
+# --- Secrets & Local Config ---
 secrets.h
 .env
 config.py
+firmware/data/config.json
+client/config.json
+
+# --- Python ---
+__pycache__/
+*.pyc
+
+# --- Testing & Linting (Quality) ---
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --- Build Artifacts (PyInstaller) ---
+build/
+dist/
+*.spec
+
+# --- PlatformIO (Firmware) ---
 .pio/
 .pioenvs/
 .piolibdeps/
-__pycache__/
-*.pyc
+
+# --- IDE & Editors ---
 .vscode/
+
+# --- OS System Files ---
 Thumbs.db
 .DS_Store
-*.spec
-build/
-dist/
-firmware/data/config.json
-client/config.json
