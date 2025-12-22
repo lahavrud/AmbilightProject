@@ -3,13 +3,14 @@ import time
 import struct
 import json
 
+
 class SerialCommunicator:
     def __init__(self, port, baud_rate):
         self.port = port
         self.baud_rate = baud_rate
         self.ser = None
         self.is_connected = False
-        
+
         self._connect()
 
     def _connect(self):
@@ -17,14 +18,14 @@ class SerialCommunicator:
         try:
             if self.ser and self.ser.is_open:
                 self.ser.close()
-                
+
             self.ser = serial.Serial(self.port, self.baud_rate, timeout=1)
             self.is_connected = True
             print(f"[Serial] Connected to {self.port} @ {self.baud_rate}")
-            
+
             # Waiting On ESP Reset
-            time.sleep(2) 
-            
+            time.sleep(2)
+
         except serial.SerialException as e:
             print(f"[Serial] Connection failed: {e}")
             self.is_connected = False
@@ -39,46 +40,53 @@ class SerialCommunicator:
             # Should add cooldown (?)
             self._connect()
             if not self.is_connected:
-                return 
+                return
 
         # Ada Light Protocol
         num_leds = len(color_data) // 3
-        if num_leds == 0: return
+        if num_leds == 0:
+            return
 
         count = num_leds - 1
-        
+
         # Split Count to hi-byte and lo-byte
         count_hi = (count >> 8) & 0xFF
         count_lo = count & 0xFF
-        
+
         checksum = count_hi ^ count_lo ^ 0x55
-        
-        header = struct.pack('>3sBBB', b'Ada', count_hi, count_lo, checksum)
-        
+
+        header = struct.pack(">3sBBB", b"Ada", count_hi, count_lo, checksum)
+
         try:
+            if self.ser is None:
+                return
             self.ser.write(header + color_data)
             # Depends on performance could add:
-            # time.sleep(0.001) 
+            # time.sleep(0.001)
         except (serial.SerialException, OSError):
             print("[Serial] Lost connection! Reconnecting...")
             self.is_connected = False
             try:
+                if self.ser is None:
+                    return
                 self.ser.close()
-            except:
+            except Exception:
                 pass
 
     def send_command(self, command_dict):
         """Sends a JSON command using 'Cmd' protocol.
-           Packet foramt: [Cmd] [JSON String] [\n]"""
+        Packet foramt: [Cmd] [JSON String] [\n]"""
         if not self.is_connected:
             self._connect()
             if not self.is_connected:
                 return
-        
+
         try:
             json_str = json.dumps(command_dict)
-            packet = b"Cmd" + json_str.encode('utf-8') + b"\n"
+            packet = b"Cmd" + json_str.encode("utf-8") + b"\n"
 
+            if self.ser is None:
+                return
             self.ser.write(packet)
             print(f"[Serial] Sent Command: {json_str}")
         except Exception as e:

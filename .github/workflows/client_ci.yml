@@ -8,7 +8,35 @@ on:
         paths:
             - 'client/**'
 jobs:
+    quality:
+      runs-on: ubuntu-latest
+      defaults:
+        run:
+          working-directory: client
+      steps:
+        - name: Checkout Code
+          uses: actions/checkout@v4
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: '3.12'
+        
+        - name: Install dependencies
+          run: pip install -r requirements.txt
+        
+        - name: Check Formatting
+          run: ruff format --check .
+
+        - name: Lint with Ruff
+          run: ruff check . --output-format=github
+
+        - name: Test with Pytest
+          run: pytest
+        
+
     build:
+        needs: quality
         runs-on: windows-latest
         defaults:
             run:
@@ -35,3 +63,4 @@ jobs:
               with:
                 name: Ambilight-Windows-App
                 path: client/dist/AmbilightStudio.exe
+                retention-days: 3
