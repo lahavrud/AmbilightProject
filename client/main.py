@@ -1,6 +1,4 @@
-import customtkinter as ctk
-from src.models import AppMode
-from src.app_controller import AmbilightApp, AppMode # הוספנו את AppMode ליתר ביטחון
+from src.app_controller import AmbilightApp
 from src.ui.main_window import MainWindow
 
 if __name__ == "__main__":
@@ -20,8 +18,8 @@ if __name__ == "__main__":
     # 4. Define Cleanup Protocol
     def on_app_close():
         print("[Main] Shutdown initiated by user...")
-        app_logic.stop_all()  
-        window.destroy()      
+        app_logic.stop_all()
+        window.destroy()
         print("[Main] Goodbye.")
 
     window.protocol("WM_DELETE_WINDOW", on_app_close)

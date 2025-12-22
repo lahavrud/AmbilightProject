@@ -5,6 +5,8 @@ from .screen_grabber import ScreenGrabber
 from .serial_comm import SerialCommunicator
 from .system_tray import SystemTray
 from .models import AppMode
+
+
 class AmbilightApp:
     """
     Main Application Controller (State Machine Version).
@@ -19,11 +21,12 @@ class AmbilightApp:
 
         hw_conf = self.config_mgr.config["hardware"]
         client_conf = self.config_mgr.config["client"]
-        
-        print(f"[Main] Initializing Serial Communicator on {client_conf['com_port']}...")
+
+        print(
+            f"[Main] Initializing Serial Communicator on {client_conf['com_port']}..."
+        )
         self.serial_comm = SerialCommunicator(
-            port=client_conf["com_port"],
-            baud_rate=hw_conf["baud_rate"]
+            port=client_conf["com_port"], baud_rate=hw_conf["baud_rate"]
         )
 
         print("[Main] Initializing Screen Grabber...")
@@ -32,7 +35,7 @@ class AmbilightApp:
         # --- State Management ---
         self.current_mode = AppMode.OFF  # The Single Source of Truth
         self.should_exit = False
-        self._observers = []             # List of GUI listeners
+        self._observers = []  # List of GUI listeners
 
         self.led_thread = None
         self.tray_thread = None
@@ -41,7 +44,7 @@ class AmbilightApp:
     # ==========================================
     #           Observer Pattern
     # ==========================================
-    
+
     def register_observer(self, callback_func):
         """GUI/Tray register here to get updates when mode changes"""
         self._observers.append(callback_func)
@@ -84,9 +87,9 @@ class AmbilightApp:
 
     def worker_logic(self):
         print("[Worker] Logic loop started.")
-        
+
         total_leds = self.config_mgr.get_nested("hardware", "num_leds") or 60
-        black_frame = b'\x00' * (total_leds * 3)
+        black_frame = b"\x00" * (total_leds * 3)
         lights_physically_off = False
 
         while not self.should_exit:
@@ -95,15 +98,15 @@ class AmbilightApp:
                 if frame:
                     self.serial_comm.send_colors(frame)
                     lights_physically_off = False
-            
+
             else:
                 # In any other mode (OFF, RAINBOW, STATIC), PC stops sending data
                 if not lights_physically_off:
                     self.serial_comm.send_colors(black_frame)
                     lights_physically_off = True
-                
-                time.sleep(0.5) 
-        
+
+                time.sleep(0.5)
+
         self.serial_comm.send_colors(black_frame)
         self.serial_comm.close()
         print("[Worker] Logic loop finished.")
@@ -124,19 +127,19 @@ class AmbilightApp:
             return
 
         print(f"[App] Switching: {self.current_mode.name} -> {new_mode.name}")
-        
+
         cmd = {}
-        
+
         if new_mode == AppMode.AMBILIGHT:
             cmd = {"cmd": "mode", "value": "ambilight"}
-            
+
         elif new_mode == AppMode.RAINBOW:
             cmd = {"cmd": "mode", "value": "rainbow"}
-            
+
         elif new_mode == AppMode.STATIC:
-            color = kwargs.get('color', [255, 0, 0])
+            color = kwargs.get("color", [255, 0, 0])
             cmd = {"cmd": "mode", "value": "static", "color": color}
-            
+
         elif new_mode == AppMode.OFF:
             cmd = {"cmd": "mode", "value": "off"}
 
@@ -155,7 +158,7 @@ class AmbilightApp:
         else:
             self.set_mode(AppMode.OFF)
             return "OFF"
-            
+
     def stop(self):
         """Called when user requests total exit (e.g., from Tray)"""
         print("[App] Total exit requested.")

@@ -4,12 +4,13 @@ from src.models import AppMode
 from .tabs.dashboard import DashboardTab
 from .tabs.calibration import CalibrationTab
 
+
 class MainWindow(ctk.CTk):
     def __init__(self, app_controller):
         super().__init__()
-        
+
         self.app = app_controller
-        
+
         self.title("Ambilight Studio")
         self.geometry("700x550")
         ctk.set_appearance_mode("Dark")
@@ -20,7 +21,9 @@ class MainWindow(ctk.CTk):
         self.app.register_observer(self.on_app_state_change)
 
     def _init_layout(self):
-        self.lbl_title = ctk.CTkLabel(self, text="Ambilight Studio", font=("Roboto", 24, "bold"))
+        self.lbl_title = ctk.CTkLabel(
+            self, text="Ambilight Studio", font=("Roboto", 24, "bold")
+        )
         self.lbl_title.pack(pady=(20, 10))
 
         self.tab_view = ctk.CTkTabview(self, width=650, height=400)
@@ -29,11 +32,14 @@ class MainWindow(ctk.CTk):
         self.tab_view.add("Dashboard")
         self.tab_view.add("Calibration")
 
-        
-        self.dashboard = DashboardTab(parent=self.tab_view.tab("Dashboard"), app_controller=self.app)
+        self.dashboard = DashboardTab(
+            parent=self.tab_view.tab("Dashboard"), app_controller=self.app
+        )
         self.dashboard.pack(fill="both", expand=True)
 
-        self.calibration = CalibrationTab(parent=self.tab_view.tab("Calibration"), app_controller=self.app)
+        self.calibration = CalibrationTab(
+            parent=self.tab_view.tab("Calibration"), app_controller=self.app
+        )
         self.calibration.pack(fill="both", expand=True)
 
         self.tab_view.set("Dashboard")
