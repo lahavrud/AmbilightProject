@@ -63,3 +63,4 @@ jobs:
               with:
                 name: Ambilight-Windows-App
                 path: client/dist/AmbilightStudio.exe
+                retention-days: 3
