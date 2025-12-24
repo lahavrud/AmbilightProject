@@ -13,7 +13,12 @@ def test_default_ConfigManager():
     """
     cfg = ConfigManager()
     expected_config = {
-        "network": {"hostname": "ambilight", "wifi_ssid": "", "wifi_pass": ""},
+        "network": {
+            "hostname": "ambilight",
+            "wifi_ssid": "",
+            "wifi_pass": "",
+            "udp_port": 8888,
+        },
         "hardware": {
             "baud_rate": 115200,
             "num_leds": 60,
@@ -22,6 +27,7 @@ def test_default_ConfigManager():
             "smoothing_speed": 20,
         },
         "client": {
+            "connection_type": "serial",
             "com_port": "COM3",
             "monitor_index": 1,
             "gamma": 2.2,
