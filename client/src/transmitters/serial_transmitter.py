@@ -2,19 +2,20 @@ import serial
 import time
 import struct
 import json
+from src.transmitters.base import DataTransmitter
 
 
-class SerialCommunicator:
+class SerialTransmitter(DataTransmitter):
     def __init__(self, port, baud_rate):
         self.port = port
         self.baud_rate = baud_rate
         self.ser = None
         self.is_connected = False
 
-        self._connect()
+        self.connect()
 
-    def _connect(self):
-        """Internal method to try opening the port"""
+    def connect(self):
+        """Initiates connection to the serial port"""
         try:
             if self.ser and self.ser.is_open:
                 self.ser.close()
@@ -38,7 +39,7 @@ class SerialCommunicator:
         """
         if not self.is_connected:
             # Should add cooldown (?)
-            self._connect()
+            self.connect()
             if not self.is_connected:
                 return
 
@@ -77,7 +78,7 @@ class SerialCommunicator:
         """Sends a JSON command using 'Cmd' protocol.
         Packet foramt: [Cmd] [JSON String] [\n]"""
         if not self.is_connected:
-            self._connect()
+            self.connect()
             if not self.is_connected:
                 return
 
@@ -92,7 +93,7 @@ class SerialCommunicator:
         except Exception as e:
             print(f"[Serial] Failed to send command: {e}")
 
-    def close(self):
+    def disconnect(self):
         if self.ser:
             self.ser.close()
             self.is_connected = False
