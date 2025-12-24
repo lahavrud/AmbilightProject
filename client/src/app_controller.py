@@ -1,10 +1,10 @@
 import threading
 import time
-from .config_manager import ConfigManager
-from .screen_grabber import ScreenGrabber
-from .serial_comm import SerialCommunicator
-from .system_tray import SystemTray
-from .models import AppMode
+from src.config_manager import ConfigManager
+from src.screen_grabber import ScreenGrabber
+from src.transmitters.serial_transmitter import SerialTransmitter
+from src.system_tray import SystemTray
+from src.models import AppMode
 
 
 class AmbilightApp:
@@ -25,7 +25,7 @@ class AmbilightApp:
         print(
             f"[Main] Initializing Serial Communicator on {client_conf['com_port']}..."
         )
-        self.serial_comm = SerialCommunicator(
+        self.serial_comm = SerialTransmitter(
             port=client_conf["com_port"], baud_rate=hw_conf["baud_rate"]
         )
 
@@ -108,7 +108,7 @@ class AmbilightApp:
                 time.sleep(0.5)
 
         self.serial_comm.send_colors(black_frame)
-        self.serial_comm.close()
+        self.serial_comm.disconnect()
         print("[Worker] Logic loop finished.")
 
     # ==========================================
