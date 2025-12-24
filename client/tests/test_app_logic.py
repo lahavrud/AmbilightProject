@@ -19,18 +19,20 @@ from src.app_controller import AmbilightApp
     ],
 )
 @patch("src.app_controller.SerialTransmitter")
-def test_set_static_mode_sends_correct_json(
+def test_set_mode_sends_correct_commands(
     MockSerialTransmitter, mode, kwargs, expected_cmd
 ):
+    """Check if all modes send the right message"""
     # 1. Arrange
     app = AmbilightApp()
 
-    # 2. Act
-    app.set_mode(AppMode.STATIC, color=[255, 0, 0])
+    if mode == AppMode.OFF:
+        app.current_mode = AppMode.RAINBOW
 
-    # 3. Assert
     mock_instance = cast(MagicMock, app.serial_comm)
 
-    expected_cmd = {"cmd": "mode", "value": "static", "color": [255, 0, 0]}
+    # 2. Act
+    app.set_mode(mode, **kwargs)
 
+    # 3. Assert
     mock_instance.send_command.assert_called_once_with(expected_cmd)
