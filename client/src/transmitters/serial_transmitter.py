@@ -2,7 +2,7 @@ import serial
 import time
 import struct
 import json
-from src.transmitters.base import DataTransmitter
+from src.transmitters.data_transmitter import DataTransmitter
 
 
 class SerialTransmitter(DataTransmitter):
