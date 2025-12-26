@@ -14,11 +14,13 @@ AppConfig& AppConfig::get() {
 void convertToJson(const NetworkConfig& src, JsonVariant dst) {
     dst["hostname"] = src.hostname;
     dst["wifi_ssid"] = src.wifi_ssid;
+    dst["udp_port"] = src.udp_port;
 }
 void convertFromJson(JsonVariantConst src, NetworkConfig& dst) {
     if (src["hostname"]) strlcpy(dst.hostname, src["hostname"], sizeof(dst.hostname));
     if (src["wifi_ssid"]) strlcpy(dst.wifi_ssid, src["wifi_ssid"], sizeof(dst.wifi_ssid));
     if (src["wifi_pass"]) strlcpy(dst.wifi_pass, src["wifi_pass"], sizeof(dst.wifi_pass));
+    dst.udp_port = src["udp_port"] | 8888;
 }
 
 // --- Hardware ---

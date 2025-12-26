@@ -9,6 +9,7 @@ struct NetworkConfig {
     char hostname[32] = "ambilight";
     char wifi_ssid[32] = "";
     char wifi_pass[64] = "";
+    uint16_t udp_port = 8888;
 };
 
 struct HardwareConfig {
