@@ -167,3 +167,17 @@ void PacketParser::handleModeChange(JsonDocument& doc) {
     Serial.print(F("Mode changed to: "));
     Serial.println(modeStr);
 }
+
+void PacketParser::pushColorBuffer(uint8_t* buffer, size_t length) {
+    CRGB* targetLeds = ledController.getTargetBuffer();
+    uint16_t numLeds = ledController.getNumLeds();
+
+    size_t maxBytes = numLeds * 3;
+    size_t bytesToCopy = length;
+
+    if (bytesToCopy > maxBytes) {
+        bytesToCopy = maxBytes;
+    }
+    
+    memcpy(targetLeds, buffer, bytesToCopy);
+}

@@ -47,6 +47,7 @@ public:
     PacketParser(LedController& controller);
 
     void parse(uint8_t byte);
+    void pushColorBuffer(uint8_t* buffer, size_t length);
 
 };
 

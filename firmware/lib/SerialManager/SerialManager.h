@@ -2,18 +2,20 @@
 #define SERIAL_MANAGER_H
 
 #include <Arduino.h>
+
+#include "IInputManager.h"
+#include "AppConfig.h"
 #include "PacketParser.h"
 
-
-class SerialManager {
+class SerialManager : public IInputManager {
 private:
     PacketParser& parser;
 
 public:
     SerialManager(PacketParser& PacketParser);
 
-    void begin();
-    void process();
+    void begin() override;
+    void process() override;
 };
 
 #endif

@@ -1,5 +1,4 @@
 #include "SerialManager.h"
-#include "AppConfig.h"
 
 SerialManager::SerialManager(PacketParser& packetParser) : parser(packetParser) {
 }
