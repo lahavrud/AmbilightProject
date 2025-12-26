@@ -8,7 +8,12 @@ import copy
 class ConfigManager:
     def __init__(self):
         self.default_config = {
-            "network": {"hostname": "ambilight", "wifi_ssid": "", "wifi_pass": ""},
+            "network": {
+                "hostname": "ambilight",
+                "wifi_ssid": "",
+                "wifi_pass": "",
+                "udp_port": 8888,
+            },
             "hardware": {
                 "baud_rate": 115200,
                 "num_leds": 60,
@@ -17,6 +22,7 @@ class ConfigManager:
                 "smoothing_speed": 20,
             },
             "client": {
+                "connection_type": "serial",
                 "com_port": "COM3",
                 "monitor_index": 1,
                 "gamma": 2.2,

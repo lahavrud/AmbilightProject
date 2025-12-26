@@ -3,6 +3,7 @@ import time
 from src.config_manager import ConfigManager
 from src.screen_grabber import ScreenGrabber
 from src.transmitters.serial_transmitter import SerialTransmitter
+from src.transmitters.udp_transmitter import UdpTransmitter
 from src.system_tray import SystemTray
 from src.models import AppMode
 
@@ -19,15 +20,27 @@ class AmbilightApp:
         self.config_mgr.load_local_config()
         self.config_mgr.sync_with_esp()
 
-        hw_conf = self.config_mgr.config["hardware"]
-        client_conf = self.config_mgr.config["client"]
+        # --- Transmitter Factory Logic ---
+        conn_type = str(
+            self.config_mgr.get_nested("client", "connection_type", "serial")
+        )
 
-        print(
-            f"[Main] Initializing Serial Communicator on {client_conf['com_port']}..."
-        )
-        self.serial_comm = SerialTransmitter(
-            port=client_conf["com_port"], baud_rate=hw_conf["baud_rate"]
-        )
+        if conn_type == "udp":
+            host = str(
+                self.config_mgr.get_nested("network", "hostname") or "ambilight.local"
+            )
+            udp_port = int(self.config_mgr.get_nested("network", "udp_port") or 8888)
+
+            print(f"[Main] Initializing UDP Transmitter ({host}:{udp_port})...")
+            self.serial_comm = UdpTransmitter(host, udp_port)
+
+        else:
+            # Fallback to Serial
+            com_port = str(self.config_mgr.get_nested("client", "com_port") or "COM3")
+            baud = int(self.config_mgr.get_nested("hardware", "baud_rate") or 115200)
+
+            print(f"[Main] Initializing Serial Transmitter ({com_port})...")
+            self.serial_comm = SerialTransmitter(port=com_port, baud_rate=baud)
 
         print("[Main] Initializing Screen Grabber...")
         self.grabber = ScreenGrabber(self.config_mgr)
@@ -88,7 +101,7 @@ class AmbilightApp:
     def worker_logic(self):
         print("[Worker] Logic loop started.")
 
-        total_leds = self.config_mgr.get_nested("hardware", "num_leds") or 60
+        total_leds = int(self.config_mgr.get_nested("hardware", "num_leds") or 60)
         black_frame = b"\x00" * (total_leds * 3)
         lights_physically_off = False
 
