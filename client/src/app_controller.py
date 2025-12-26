@@ -29,7 +29,6 @@ class AmbilightApp:
             host = str(
                 self.config_mgr.get_nested("network", "hostname") or "ambilight.local"
             )
-            # השימוש ב-int(...) וב-or מבטיח מספר תקין
             udp_port = int(self.config_mgr.get_nested("network", "udp_port") or 8888)
 
             print(f"[Main] Initializing UDP Transmitter ({host}:{udp_port})...")

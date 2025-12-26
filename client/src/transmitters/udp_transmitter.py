@@ -31,10 +31,14 @@ class UdpTransmitter(DataTransmitter):
 
         try:
             # JSON to bytes
-            message = json.dumps(command_dict)
-            data = message.encode("utf-8")
+            json_str = json.dumps(command_dict)
 
+            # Command protocol
+            final_message = f"Cmd{json_str}\n"
+
+            data = final_message.encode("utf-8")
             self.sock.sendto(data, (self.resolved_ip, self.port))
+            print(f"[UDP] Sent: {final_message.strip()}")
 
         except Exception as e:
             print(f"[UDP Send Error] {e}")

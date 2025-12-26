@@ -27,5 +27,3 @@ if __name__ == "__main__":
     # 5. Start the Main Event Loop
     # The GUI will now automatically sync with the controller's initial state
     window.mainloop()
-
-# Trigger CI build test
