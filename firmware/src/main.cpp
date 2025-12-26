@@ -2,11 +2,13 @@
 #include "AppConfig.h"
 #include "LedController.h"
 #include "WebController.h"
+#include "PacketParser.h"
 #include "SerialManager.h"
 
 LedController mainLeds;
 WebController webCtrl(mainLeds);
-SerialManager serialMgr(mainLeds);
+PacketParser parser(mainLeds);
+SerialManager serialMgr(parser);
 
 void setup() {
   Serial.setRxBufferSize(2048);
@@ -24,4 +26,3 @@ void loop() {
   webCtrl.handleClient();
   mainLeds.update();
 }
-// Trigger CI build test
