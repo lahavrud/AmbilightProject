@@ -127,16 +127,19 @@ class AmbilightApp:
     # ==========================================
     #           Settings Update
     # ==========================================
-    def update_settings(self, key, value):
+    def update_setting(self, key, value):
         """
         Updates a setting dynamically and reloads necessary components.
         Thread-safe enough for our needs (Python GIL handles atomic assignment).
         """
-        print(f"[App] Setting update: {key} -> {value:.2f}")
 
         if key == "gamma":
             self.config_mgr.config["client"]["gamma"] = float(value)
+            print(f"[App] Setting update: {key} -> {value:.2f}")
 
+        if key == "monitor_index":
+            self.config_mgr.config["client"]["monitor_index"] = int(value)
+            print(f"[App] Setting update: {key} -> {value}")
         if self.grabber:
             self.grabber.reload_config()
 
