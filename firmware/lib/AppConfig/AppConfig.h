@@ -28,12 +28,20 @@ struct LedLayout {
     int bottom = 20;
 };
 
+struct CropConfig {
+    int left = 0;
+    int top = 0;
+    int right = 0;
+    int bottom = 0;
+};
+
 struct ClientConfig {
     String com_port = "COM3";
     int monitor_index = 1;
     float gamma = 2.2;
     int depth = 100;
     LedLayout layout;
+    CropConfig cropping;
 };
 class AppConfig {
 public:

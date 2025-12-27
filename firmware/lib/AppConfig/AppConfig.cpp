@@ -57,13 +57,28 @@ void convertFromJson(JsonVariantConst src, LedLayout& dst) {
     dst.bottom = src["bottom"] | 20;
 }
 
+// --- CropConfig ---
+void convertToJson(const CropConfig& src, JsonVariant dst) {
+    dst["left"] = src.top;
+    dst["top"] = src.bottom;
+    dst["right"] = src.left;
+    dst["bottom"] = src.right;
+}
+void convertFromJson(JsonVariantConst src, CropConfig& dst) {
+    dst.top = src["left"] | 0;
+    dst.bottom = src["top"] | 0;
+    dst.left = src["right"] | 0;
+    dst.right = src["bottom"] | 0;
+}
+
 // --- Client ---
 void convertToJson(const ClientConfig& src, JsonVariant dst) {
     dst["com_port"] = src.com_port;
     dst["monitor_index"] = src.monitor_index;
     dst["gamma"] = src.gamma;
     dst["depth"] = src.depth;
-    dst["layout"] = src.layout; 
+    dst["layout"] = src.layout;
+    dst["cropping"] = src.cropping;
 }
 void convertFromJson(JsonVariantConst src, ClientConfig& dst) {
     dst.com_port = src["com_port"] | "COM3";
@@ -72,6 +87,9 @@ void convertFromJson(JsonVariantConst src, ClientConfig& dst) {
     dst.depth = src["depth"] | 100;
     if (src["layout"]) {
         dst.layout = src["layout"];
+    }
+    if(src["cropping"]) {
+        dst.cropping = src["cropping"];
     }
 }
 

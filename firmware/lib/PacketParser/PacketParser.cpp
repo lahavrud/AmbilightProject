@@ -137,6 +137,23 @@ void PacketParser::handleConfigUpdate(JsonDocument& doc) {
         changed = true;
     }
 
+    if (doc["client"]) {
+        JsonObject clientObj = doc["client"];
+
+        if (clientObj["cropping"]) {
+            JsonObject crop = clientObj["cropping"];
+
+            if (crop.containsKey("left"))if (crop.containsKey("left"))   { cfg.client.cropping.left = crop["left"]; changed = true; }
+            if (crop.containsKey("top"))    { cfg.client.cropping.top = crop["top"]; changed = true; }
+            if (crop.containsKey("right"))  { cfg.client.cropping.right = crop["right"]; changed = true; }
+            if (crop.containsKey("bottom")) { cfg.client.cropping.bottom = crop["bottom"]; changed = true; }
+        }
+
+        if (clientObj.containsKey("monitor_index")) { cfg.client.monitor_index = clientObj["monitor_index"]; changed = true; }
+        if (clientObj.containsKey("depth"))         { cfg.client.depth = clientObj["depth"]; changed = true; }
+        if (clientObj.containsKey("gamma"))         { cfg.client.gamma = clientObj["gamma"]; changed = true; }
+    }
+
     if (changed) {
         cfg.saveConfig();
         ledController.reloadConfig();
