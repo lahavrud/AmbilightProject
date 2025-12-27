@@ -7,16 +7,17 @@ class ScreenGrabber:
     def __init__(self, config_manager):
         self.cfg = config_manager
         self.sct = None
-        self.gamma_table = None
+        self.gamma_table = np.arange(256, dtype=np.uint8)
 
         self.reload_config()
 
     def reload_config(self):
         # Creates a gamma values table to save computing time
-        gamma_val = self.cfg.get_nested("client", "gamma")
-        self.gamma_table = np.array(
-            [int((i / 255.0) ** gamma_val * 255) for i in range(256)]
-        ).astype(np.uint8)  # Each value is assigned with a new gamma one 0-255
+        gamma_val = self.cfg.get_nested("client", "gamma") or 2
+
+        arr = np.arange(256)
+        corrected = ((arr / 255.0) ** gamma_val) * 255
+        self.gamma_table = corrected.astype(np.uint8)
 
         # Saves settings
         self.monitor_idx = self.cfg.get_nested("client", "monitor_index")
@@ -50,7 +51,7 @@ class ScreenGrabber:
         return corrected_color.flatten().tobytes()
 
     def get_frame_bytes(self):
-        """"""
+        """Captures screen, crops roi, calculates average colors per zone, and returns a raw byte"""
         try:
             # Initial sct in the current thread
             if self.sct is None:

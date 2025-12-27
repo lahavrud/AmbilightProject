@@ -125,6 +125,22 @@ class AmbilightApp:
         print("[Worker] Logic loop finished.")
 
     # ==========================================
+    #           Settings Update
+    # ==========================================
+    def update_settings(self, key, value):
+        """
+        Updates a setting dynamically and reloads necessary components.
+        Thread-safe enough for our needs (Python GIL handles atomic assignment).
+        """
+        print(f"[App] Setting update: {key} -> {value:.2f}")
+
+        if key == "gamma":
+            self.config_mgr.config["client"]["gamma"] = float(value)
+
+        if self.grabber:
+            self.grabber.reload_config()
+
+    # ==========================================
     #           External Control (State Machine)
     # ==========================================
 
