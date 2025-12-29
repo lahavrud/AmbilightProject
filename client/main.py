@@ -1,3 +1,9 @@
+import ctypes
+
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
 from src.app_controller import AmbilightApp
 from src.ui.main_window import MainWindow
 

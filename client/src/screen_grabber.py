@@ -115,3 +115,10 @@ class ScreenGrabber:
         except Exception as e:
             print(f"[Screen] Error grabbing frame: {e}")
             return None
+
+    def get_monitor_geometry(self):
+        """Returns the geometry dict {'top': y, 'left': x, 'width': w, 'height': h}"""
+        with mss.mss() as sct:
+            if self.monitor_idx < len(sct.monitors):
+                return sct.monitors[self.monitor_idx]
+            return sct.monitors[1]
