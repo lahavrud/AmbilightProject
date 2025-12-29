@@ -130,17 +130,38 @@ class AmbilightApp:
     def update_setting(self, key, value):
         """
         Updates a setting dynamically and reloads necessary components.
-        Thread-safe enough for our needs (Python GIL handles atomic assignment).
+        Handles cropping, depth, monitor index, and gamma.
         """
+        needs_grabber_reload = False
 
+        # --- Monitor & Gamma ---
         if key == "gamma":
             self.config_mgr.config["client"]["gamma"] = float(value)
-            print(f"[App] Setting update: {key} -> {value:.2f}")
+            # Gamma usually doesn't need grabber reload, but maybe LUT regeneration
 
-        if key == "monitor_index":
+        elif key == "monitor_index":
             self.config_mgr.config["client"]["monitor_index"] = int(value)
-            print(f"[App] Setting update: {key} -> {value}")
-        if self.grabber:
+            print(f"[App] Monitor changed: {value}")
+            needs_grabber_reload = True
+
+        # --- Depth ---
+        elif key == "depth":
+            self.config_mgr.config["client"]["depth"] = int(value)
+            needs_grabber_reload = True
+
+        # --- Cropping (crop_top, crop_left, etc.) ---
+        elif key.startswith("crop_"):
+            side = key.replace("crop_", "")  # top, bottom, left, right
+
+            # Ensure 'cropping' dict exists
+            if "cropping" not in self.config_mgr.config["client"]:
+                self.config_mgr.config["client"]["cropping"] = {}
+
+            self.config_mgr.config["client"]["cropping"][side] = int(value)
+            needs_grabber_reload = True
+
+        # --- Reload Components if needed ---
+        if needs_grabber_reload and self.grabber:
             self.grabber.reload_config()
 
     # ==========================================
@@ -150,10 +171,6 @@ class AmbilightApp:
     def set_mode(self, new_mode: AppMode, **kwargs):
         """
         Handles mode switching logic.
-        1. Determines the correct JSON command for ESP.
-        2. Sends the command.
-        3. Updates internal state.
-        4. Notifies GUI.
         """
         if self.current_mode == new_mode:
             return
