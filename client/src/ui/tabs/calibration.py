@@ -1,17 +1,19 @@
 import customtkinter as ctk
 from src.ui.windows.screen_editor import ScreenEditor
+from src.ui.windows.corner_wizard import CornerWizard  # ייבוא החלון החדש
 
 
 class CalibrationTab(ctk.CTkFrame):
     """
-    Tab responsible for geometric calibration (Screen Editor) and
+    Tab responsible for geometric calibration (Screen Editor & Corner Wizard) and
     performance tuning (Gamma, Brightness, Smoothing).
     """
 
     def __init__(self, parent, app_controller):
         super().__init__(parent)
         self.app = app_controller
-        self.editor_window = None  # Reference to the popup window
+        self.editor_window = None
+        self.wizard_window = None
 
         self._setup_ui()
 
@@ -21,62 +23,54 @@ class CalibrationTab(ctk.CTkFrame):
             self, text="Calibration & Performance", font=("Roboto", 20, "bold")
         ).pack(pady=(20, 10))
 
-        # --- Screen Editor Button ---
+        # --- Geometric Calibration Section ---
+        geo_frame = ctk.CTkFrame(self, fg_color="transparent")
+        geo_frame.pack(pady=10)
+
         ctk.CTkButton(
-            self,
-            text="Open Screen Editor",
+            geo_frame,
+            text="Adjust Screen Area",
             command=self.open_editor,
             height=40,
+            width=200,
             fg_color="#E67E22",
             hover_color="#D35400",
-        ).pack(pady=10)
+        ).pack(side="left", padx=10)
+
+        ctk.CTkButton(
+            geo_frame,
+            text="Map LED Corners",
+            command=self.open_wizard,
+            height=40,
+            width=200,
+            fg_color="#3498DB",
+            hover_color="#2980B9",
+        ).pack(side="left", padx=10)
 
         # Visual Separator
-        ctk.CTkFrame(self, height=2, fg_color="#333").pack(fill="x", padx=20, pady=10)
+        ctk.CTkFrame(self, height=2, fg_color="#333").pack(fill="x", padx=20, pady=15)
 
         # =========================================
-        #              Gamma (Color)
+        #             Performance Tuning
         # =========================================
-        # Range: 1.0 to 3.0
+        # Gamma
         current_gamma = self.app.config_mgr.get_nested("client", "gamma") or 2.2
         self._add_slider_control(
-            label_text="Gamma Correction",
-            config_key="gamma",
-            current_val=current_gamma,
-            min_val=1.0,
-            max_val=3.0,
-            step=0.1,
+            "Gamma Correction", "gamma", current_gamma, 1.0, 3.0, 0.1
         )
 
-        # =========================================
-        #            Brightness (Hardware)
-        # =========================================
-        # Range: 1% to 100%
+        # Brightness
         current_bright = self.app.config_mgr.get_nested("hardware", "brightness") or 50
         self._add_slider_control(
-            label_text="LED Brightness",
-            config_key="brightness",
-            current_val=current_bright,
-            min_val=1,
-            max_val=100,
-            step=1,
-            suffix="%",
+            "LED Brightness", "brightness", current_bright, 1, 100, 1, suffix="%"
         )
 
-        # =========================================
-        #           Smoothing Speed (Hardware)
-        # =========================================
-        # Range: 1 (Slow/Fluid) to 100 (Fast/Snappy)
+        # Smoothing
         current_smooth = (
             self.app.config_mgr.get_nested("hardware", "smoothing_speed") or 20
         )
         self._add_slider_control(
-            label_text="Smoothing Speed",
-            config_key="smoothing_speed",
-            current_val=current_smooth,
-            min_val=1,
-            max_val=100,
-            step=1,
+            "Smoothing Speed", "smoothing_speed", current_smooth, 1, 100, 1
         )
 
         # --- Save Button ---
@@ -91,17 +85,11 @@ class CalibrationTab(ctk.CTkFrame):
     def _add_slider_control(
         self, label_text, config_key, current_val, min_val, max_val, step, suffix=""
     ):
-        """
-        Helper method to create a standardized row with Label, Slider, and Value display.
-        """
-        # Container Frame
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", padx=30, pady=5)
 
-        # Label (Left)
         ctk.CTkLabel(row, text=label_text, width=140, anchor="w").pack(side="left")
 
-        # Value Label (Right) - Created before slider so we can pass it to the callback
         val_label = ctk.CTkLabel(
             row,
             text=f"{current_val}{suffix}",
@@ -111,7 +99,6 @@ class CalibrationTab(ctk.CTkFrame):
         )
         val_label.pack(side="right")
 
-        # Slider (Center)
         slider = ctk.CTkSlider(
             row,
             from_=min_val,
@@ -123,11 +110,6 @@ class CalibrationTab(ctk.CTkFrame):
         slider.pack(side="left", expand=True, fill="x", padx=10)
 
     def _on_slider_change(self, value, key, label_widget, suffix):
-        """
-        Generic handler for all sliders.
-        Updates the label text and sends the new value to AppController.
-        """
-        # Format display (int vs float)
         if isinstance(value, float) and value % 1 != 0:
             display_val = f"{value:.1f}"
             final_val = float(value)
@@ -135,16 +117,8 @@ class CalibrationTab(ctk.CTkFrame):
             display_val = f"{int(value)}"
             final_val = int(value)
 
-        # Update UI Label
         label_widget.configure(text=f"{display_val}{suffix}")
-
-        # Update Logic (AppController handles routing to 'client' or 'hardware' based on key)
         self.app.update_setting(key, final_val)
-
-    def save_settings(self):
-        """Manually triggers a save to config.json"""
-        self.app.config_mgr._save_local_config(self.app.config_mgr.config)
-        print("[UI] Settings saved manually.")
 
     def open_editor(self):
         """Opens or focuses the Screen Editor window."""
@@ -152,5 +126,20 @@ class CalibrationTab(ctk.CTkFrame):
             self.editor_window.lift()
             self.editor_window.focus_force()
             return
-
         self.editor_window = ScreenEditor(self.winfo_toplevel(), self.app)
+
+    def open_wizard(self):
+        """Opens or focuses the Corner Wizard window."""
+        if self.wizard_window is not None and self.wizard_window.winfo_exists():
+            self.wizard_window.lift()
+            self.wizard_window.focus_force()
+            return
+
+        if self.editor_window and self.editor_window.winfo_exists():
+            self.editor_window.destroy()
+
+        self.wizard_window = CornerWizard(self.winfo_toplevel(), self.app)
+
+    def save_settings(self):
+        self.app.config_mgr._save_local_config(self.app.config_mgr.config)
+        print("[UI] Settings saved manually.")

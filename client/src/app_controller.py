@@ -127,7 +127,7 @@ class AmbilightApp:
         print("[Worker] Logic loop finished.")
 
     # ==========================================
-    #            Settings Update
+    #            Calibration
     # ==========================================
     def update_setting(self, key, value):
         """
@@ -176,6 +176,24 @@ class AmbilightApp:
         if needs_esp_sync:
             cmd = {"cmd": key, "value": int(value)}
             self.esp_link.send_command(cmd)
+
+    def preview_layout(self, layout_dict):
+        """
+        Sends the layout dimensions to the ESP for visual verification.
+        Each side will be lit up in a different color.
+        """
+        cmd = {
+            "cmd": "preview_layout",
+            "top": int(layout_dict.get("top", 0)),
+            "bottom": int(layout_dict.get("bottom", 0)),
+            "left": int(layout_dict.get("left", 0)),
+            "right": int(layout_dict.get("right", 0)),
+        }
+
+        if hasattr(self, "esp_link") and self.esp_link:
+            self.esp_link.send_command(cmd)
+        else:
+            print(f"[App] Simulation: Previewing layout {cmd}")
 
     # ==========================================
     #         Hardware Synchronization
