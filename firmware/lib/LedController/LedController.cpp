@@ -137,3 +137,30 @@ void LedController::setStaticColor(int r, int g, int b) {
 void LedController::setBrightness(int brightness) {
     FastLED.setBrightness(brightness);
 }
+
+void LedController::previewLayout(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom) {
+    FastLED.clear();
+
+    int currentIdx = 0;
+
+    if (currentIdx + left <= numLeds) {
+        fill_solid(leds + currentIdx, left, CRGB::Red);
+        currentIdx += left;
+    }
+
+    if (currentIdx + top <= numLeds) {
+        fill_solid(leds + currentIdx, top, CRGB::Blue);
+        currentIdx += top;
+    }
+
+    if (currentIdx + right <= numLeds) {
+        fill_solid(leds + currentIdx, right, CRGB::Orange);
+        currentIdx += right;
+    }
+
+    if (currentIdx + bottom <= numLeds) {
+        fill_solid(leds + currentIdx, bottom, CRGB::Green);
+    }
+
+    FastLED.show();
+}

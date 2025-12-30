@@ -49,6 +49,8 @@ public:
     void setStaticColor(int r, int g, int b);
     void setBrightness(int brightness);
 
+    void previewLayout(uint16_t left, uint16_t top, uint16_t right, uint16_t bottom);
+    
     void reloadConfig();
 };
 

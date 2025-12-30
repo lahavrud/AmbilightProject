@@ -133,6 +133,14 @@ void PacketParser::executeJsonCommand() {
             Serial.println(F("Error: No responder available for get_config"));
         }
     }
+    else if(strcmp(command, "preview_layout") == 0) {
+        uint16_t top_l = doc["top"] | 0;
+        uint16_t bottom_l = doc["bottom"] | 0;
+        uint16_t left_l = doc["left"] | 0;
+        uint16_t right_l = doc["right"] | 0;
+        ledController.previewLayout(left_l, top_l, right_l, bottom_l);
+        Serial.println(F("Previewing Layout"));
+    }
     else {
         Serial.print(F("Unknown command: "));
         Serial.println(command);
