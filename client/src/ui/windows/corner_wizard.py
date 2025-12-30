@@ -8,33 +8,31 @@ class CornerWizard(tk.Toplevel):
         self.app = app_controller
 
         # --- CustomTkinter Compatibility Patch ---
-        # Prevents AttributeError when CTK checks for scaling methods in Toplevel
         self.block_update_dimensions_event = lambda: None
         self.unblock_update_dimensions_event = lambda: None
 
-        # Load existing layout from configuration
+        # Load existing layout
         layout = self.app.config_mgr.get_nested("client", "layout") or {
             "left": 0,
             "top": 0,
             "right": 0,
             "bottom": 0,
         }
+
+        # CHANGE: Use StringVar instead of IntVar to allow empty strings without errors
         self.sides = {
-            "top": tk.IntVar(value=layout.get("top", 0)),
-            "bottom": tk.IntVar(value=layout.get("bottom", 0)),
-            "left": tk.IntVar(value=layout.get("left", 0)),
-            "right": tk.IntVar(value=layout.get("right", 0)),
+            "top": tk.StringVar(value=str(layout.get("top", 0))),
+            "bottom": tk.StringVar(value=str(layout.get("bottom", 0))),
+            "left": tk.StringVar(value=str(layout.get("left", 0))),
+            "right": tk.StringVar(value=str(layout.get("right", 0))),
         }
 
-        # Window configuration
+        # Window config
         self.overrideredirect(True)
         self.attributes("-topmost", True)
-
-        # Start invisible to prevent flicker during initial geometry calculation
         self.attributes("-alpha", 0.0)
         self.configure(bg="black")
 
-        # Set geometry based on current monitor
         monitor = self.app.grabber.get_monitor_geometry()
         self.geometry(
             f"{monitor['width']}x{monitor['height']}+{monitor['left']}+{monitor['top']}"
@@ -44,16 +42,12 @@ class CornerWizard(tk.Toplevel):
         self.canvas.pack(fill="both", expand=True)
 
         self._setup_ui()
-
-        # Keyboard bindings
         self.bind("<Escape>", lambda e: self.destroy())
 
-        # Ensure dimensions are calculated before showing the window
         self.update_idletasks()
         self.after(100, self._reveal_window)
 
     def _reveal_window(self):
-        """Gradually reveal window once dimensions are settled."""
         try:
             self.attributes("-alpha", 0.9)
             self.focus_force()
@@ -62,7 +56,6 @@ class CornerWizard(tk.Toplevel):
             print(f"[Corner Wizard] Failed to reveal window: {e}")
 
     def _setup_ui(self):
-        # Central control panel
         self.controls = ctk.CTkFrame(
             self,
             fg_color="#1a1a1a",
@@ -82,7 +75,6 @@ class CornerWizard(tk.Toplevel):
             text_color="#888",
         ).pack(pady=(0, 15))
 
-        # Diamond-shaped grid for side inputs
         grid = ctk.CTkFrame(self.controls, fg_color="transparent")
         grid.pack(pady=10, padx=20)
 
@@ -91,7 +83,6 @@ class CornerWizard(tk.Toplevel):
         self._add_input(grid, "Right", "right", 1, 2)
         self._add_input(grid, "Bottom", "bottom", 2, 1)
 
-        # Action buttons
         btn_frame = ctk.CTkFrame(self.controls, fg_color="transparent")
         btn_frame.pack(pady=20)
 
@@ -108,7 +99,6 @@ class CornerWizard(tk.Toplevel):
         ).pack(side="left", padx=5)
 
     def _add_input(self, master, label, side, r, c):
-        """Helper to add labeled numeric input with +/- buttons."""
         frame = ctk.CTkFrame(master, fg_color="#222", corner_radius=10)
         frame.grid(row=r, column=c, padx=10, pady=10)
 
@@ -132,24 +122,29 @@ class CornerWizard(tk.Toplevel):
         )
         entry.pack(side="left", padx=5)
 
-        # Trigger redraw on any change
         self.sides[side].trace_add("write", lambda *args: self._refresh_view())
 
         ctk.CTkButton(
             inner, text="+", width=25, command=lambda: self._inc(side, 1)
         ).pack(side="left")
 
-    def _inc(self, side, delta):
-        """Increments or decrements the side LED count."""
+    def _get_safe_val(self, side):
+        """Safely converts StringVar to int, returning 0 if empty or invalid."""
         try:
             val = self.sides[side].get()
-            self.sides[side].set(max(0, val + delta))
-        except Exception:
-            print(f"[Corner Wizard] Invalid input for {side}, resetting to 0")
-            self.sides[side].set(0)
+            if val == "":
+                return 0
+            return int(val)
+        except (ValueError, TypeError):
+            return 0
+
+    def _inc(self, side, delta):
+        current = self._get_safe_val(side)
+        new_val = max(0, current + delta)
+        # Update the StringVar with the new string value
+        self.sides[side].set(str(new_val))
 
     def _refresh_view(self):
-        """Redraws the digital representation and syncs with hardware."""
         if not self.winfo_exists():
             return
         self.canvas.delete("all")
@@ -165,29 +160,29 @@ class CornerWizard(tk.Toplevel):
             "left": "#E74C3C",
         }
 
-        # Draw the virtual layout lines on canvas
         self._draw_side_line(
-            pad, pad, w - pad, pad, self.sides["top"].get(), colors["top"]
+            pad, pad, w - pad, pad, self._get_safe_val("top"), colors["top"]
         )
         self._draw_side_line(
-            w - pad, pad, w - pad, h - pad, self.sides["right"].get(), colors["right"]
+            w - pad, pad, w - pad, h - pad, self._get_safe_val("right"), colors["right"]
         )
         self._draw_side_line(
-            w - pad, h - pad, pad, h - pad, self.sides["bottom"].get(), colors["bottom"]
+            w - pad,
+            h - pad,
+            pad,
+            h - pad,
+            self._get_safe_val("bottom"),
+            colors["bottom"],
         )
         self._draw_side_line(
-            pad, h - pad, pad, pad, self.sides["left"].get(), colors["left"]
+            pad, h - pad, pad, pad, self._get_safe_val("left"), colors["left"]
         )
 
         self._sync_to_esp()
 
     def _draw_side_line(self, x1, y1, x2, y2, count, color):
-        """Draws a single side line with an LED count label."""
         if count > 0:
-            # Main side line
             self.canvas.create_line(x1, y1, x2, y2, fill=color, width=5)
-
-            # LED count label placement
             mx, my = (x1 + x2) / 2, (y1 + y2) / 2
             offset = 25
             if y1 == y2:
@@ -200,24 +195,21 @@ class CornerWizard(tk.Toplevel):
             )
 
     def _sync_to_esp(self):
-        """Sends current layout data to the controller for live preview."""
-        layout_data = {side: var.get() for side, var in self.sides.items()}
+        layout_data = {side: self._get_safe_val(side) for side in self.sides}
         try:
             self.app.preview_layout(layout_data)
         except Exception:
-            # Silent fail for attribute errors during init
             pass
 
     def _save_and_exit(self):
-        """Saves values to config manager and persists to disk."""
         try:
-            for side, var in self.sides.items():
-                self.app.config_mgr.config["client"]["layout"][side] = var.get()
+            total = 0
+            for side in self.sides:
+                val = self._get_safe_val(side)
+                self.app.config_mgr.config["client"]["layout"][side] = val
+                total += val
 
-            # Update hardware num_leds based on new layout sum
-            total = sum(var.get() for var in self.sides.values())
             self.app.config_mgr.config["hardware"]["num_leds"] = total
-
             self.app.config_mgr._save_local_config(self.app.config_mgr.config)
             print(f"[Corner Wizard] Layout saved: {total} total LEDs")
             self.destroy()
