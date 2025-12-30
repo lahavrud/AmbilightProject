@@ -6,12 +6,13 @@
 #include <Arduino.h>
 
 #include "IInputManager.h"
+#include "IResponder.h"
 #include "AppConfig.h"
 #include "PacketParser.h"
 
 #define UDP_BUFFER_SIZE 1460
 
-class UdpManager : public IInputManager {
+class UdpManager : public IInputManager, public IResponder {
 private:
     PacketParser& parser;
     WiFiUDP udp;
@@ -20,10 +21,12 @@ private:
 public:
     UdpManager(PacketParser& PacketParser);
 
+    // InputManager
     void begin() override;
     void process() override;
 
-    void debugStatus();
+    // Responder
+    void sendResponse(const String& response) override;
 };
 
 #endif

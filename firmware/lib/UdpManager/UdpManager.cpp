@@ -27,6 +27,8 @@ void UdpManager::process() {
                  (len > 3 && packetBuffer[0] == 'C' && packetBuffer[1] == 'm' && packetBuffer[2] == 'd');
         
         if(isCommand) {
+            parser.setResponder(this);
+            
             for (int i = 0; i < len; i++) {
                 parser.parse(packetBuffer[i]);
             }
@@ -37,11 +39,8 @@ void UdpManager::process() {
     }
 }
 
-void UdpManager::debugStatus() {
-    Serial.print("UDP Status: ");
-    // אין פונקציה ישירה לבדוק אם הוא מקשיב, אבל נבדוק את ה-WiFi
-    Serial.print("WiFi: ");
-    Serial.print(WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected");
-    Serial.print(" | IP: ");
-    Serial.println(WiFi.localIP());
+void UdpManager::sendResponse(const String& response) {
+    udp.beginPacket(udp.remoteIP(), udp.remotePort());
+    udp.print(response);
+    udp.endPacket();
 }

@@ -4,12 +4,14 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
 #include "LedController.h"
+#include "IResponder.h"
 
 #define CMD_BUFFER_SIZE 512
 
 class PacketParser { 
 private:
     LedController& ledController;
+    IResponder* responder = nullptr;
     enum ParserState {
             ST_IDLE,
             
@@ -46,6 +48,8 @@ private:
 public: 
     PacketParser(LedController& controller);
 
+    void setResponder(IResponder* resp) { responder = resp; }
+    
     void parse(uint8_t byte);
     void pushColorBuffer(uint8_t* buffer, size_t length);
 

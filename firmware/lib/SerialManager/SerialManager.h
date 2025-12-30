@@ -7,15 +7,19 @@
 #include "AppConfig.h"
 #include "PacketParser.h"
 
-class SerialManager : public IInputManager {
+class SerialManager : public IInputManager, public IResponder {
 private:
     PacketParser& parser;
 
 public:
     SerialManager(PacketParser& PacketParser);
 
+    // InputManager
     void begin() override;
     void process() override;
+
+    // Responder
+    void sendResponse(const String& response) override;
 };
 
 #endif

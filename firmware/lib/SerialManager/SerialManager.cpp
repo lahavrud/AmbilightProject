@@ -10,9 +10,16 @@ void SerialManager::begin() {
 }
 
 void SerialManager::process() {
-    while (Serial.available() > 0) {
-        uint8_t c = Serial.read();
-    
-        parser.parse(c);
+    if (Serial.available() > 0) {
+        parser.setResponder(this);
+        while (Serial.available() > 0) {
+            uint8_t c = Serial.read();
+            parser.parse(c);
     }
+    parser.setResponder(nullptr);
+    }
+}
+
+void SerialManager::sendResponse(const String& response) {
+    Serial.println(response);
 }

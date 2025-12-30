@@ -4,6 +4,7 @@
 PacketParser::PacketParser(LedController& controller) : ledController(controller){ 
     state = ST_IDLE;
     cmdBufferIndex = 0;
+    responder = nullptr;
 }
 
 void PacketParser::parse(uint8_t c) {
@@ -117,6 +118,14 @@ void PacketParser::executeJsonCommand() {
     else if (strcmp(command, "mode") == 0) {
         handleModeChange(doc);
     }
+    else if (strcmp(command, "get_config") == 0) {
+        if (responder != nullptr) {
+            String currentCfg = AppConfig::get().getConfigJson();
+            responder->sendResponse(currentCfg);
+        } else {
+            Serial.println(F("Error: No responder available for get_config"));
+        }
+    }
     else {
         Serial.println(F("Unknown command"));
     }
@@ -143,7 +152,7 @@ void PacketParser::handleConfigUpdate(JsonDocument& doc) {
         if (clientObj["cropping"]) {
             JsonObject crop = clientObj["cropping"];
 
-            if (crop.containsKey("left"))if (crop.containsKey("left"))   { cfg.client.cropping.left = crop["left"]; changed = true; }
+            if (crop.containsKey("left"))   { cfg.client.cropping.left = crop["left"]; changed = true; }
             if (crop.containsKey("top"))    { cfg.client.cropping.top = crop["top"]; changed = true; }
             if (crop.containsKey("right"))  { cfg.client.cropping.right = crop["right"]; changed = true; }
             if (crop.containsKey("bottom")) { cfg.client.cropping.bottom = crop["bottom"]; changed = true; }
