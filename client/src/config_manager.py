@@ -1,6 +1,5 @@
 import json
 import os
-import requests
 import sys
 import copy
 
@@ -72,48 +71,6 @@ class ConfigManager:
         except Exception as e:
             print(f"[Config] Error loading local file: {e}")
             print("[Config] Using defaults.")
-
-    def sync_with_esp(self):
-        """Fetches config settings from ESP32 and updates local config"""
-        hostname = self.get_nested("network", "hostname") or "ambilight.local"
-
-        if not hostname.endswith(".local") and "." not in hostname:
-            address = f"{hostname}.local"
-        else:
-            address = hostname
-
-        url = f"http://{address}/config"
-        print(f"[Config] Connecting to ESP at {url}...")
-
-        try:
-            response = requests.get(url, timeout=2)
-            if response.status_code == 200:
-                remote_data = response.json()
-                print(f"[DEBUG] Received from ESP: {remote_data}")
-
-                if "hardware" in remote_data:
-                    self.config["hardware"].update(remote_data["hardware"])
-
-                if "client" in remote_data:
-                    self.config["client"].update(remote_data["client"])
-
-                if "network" in remote_data:
-                    if "hostname" in remote_data["network"]:
-                        self.config["network"]["hostname"] = remote_data["network"][
-                            "hostname"
-                        ]
-                    if "wifi_ssid" in remote_data["network"]:
-                        self.config["network"]["wifi_ssid"] = remote_data["network"][
-                            "wifi_ssid"
-                        ]
-
-                self._save_local_config(self.config)
-                print("[Config] Successfully synced with ESP32 and saved!")
-            else:
-                print(f"[Config] ESP returned status {response.status_code}")
-        except requests.exceptions.RequestException as e:
-            print(f"[Config] Failed to connect to ESP: {e}")
-            print("         Using local values.")
 
     def get_nested(self, section, key, default=None):
         """

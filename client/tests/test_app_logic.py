@@ -29,7 +29,7 @@ def test_set_mode_sends_correct_commands(
     if mode == AppMode.OFF:
         app.current_mode = AppMode.RAINBOW
 
-    mock_instance = cast(MagicMock, app.serial_comm)
+    mock_instance = cast(MagicMock, app.esp_link)
 
     # 2. Act
     app.set_mode(mode, **kwargs)

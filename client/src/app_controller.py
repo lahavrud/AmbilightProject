@@ -2,8 +2,8 @@ import threading
 import time
 from src.config_manager import ConfigManager
 from src.screen_grabber import ScreenGrabber
-from src.transmitters.serial_transmitter import SerialTransmitter
-from src.transmitters.udp_transmitter import UdpTransmitter
+from src.channels.serial_channel import SerialChannel
+from src.channels.udp_channel import UdpChannel
 from src.system_tray import SystemTray
 from src.models import AppMode
 
@@ -18,7 +18,6 @@ class AmbilightApp:
         print("[Main] Initializing ConfigManager...")
         self.config_mgr = ConfigManager()
         self.config_mgr.load_local_config()
-        self.config_mgr.sync_with_esp()
 
         # --- Transmitter Factory Logic ---
         conn_type = str(
@@ -32,7 +31,7 @@ class AmbilightApp:
             udp_port = int(self.config_mgr.get_nested("network", "udp_port") or 8888)
 
             print(f"[Main] Initializing UDP Transmitter ({host}:{udp_port})...")
-            self.serial_comm = UdpTransmitter(host, udp_port)
+            self.esp_link = UdpChannel(host, udp_port)
 
         else:
             # Fallback to Serial
@@ -40,7 +39,10 @@ class AmbilightApp:
             baud = int(self.config_mgr.get_nested("hardware", "baud_rate") or 115200)
 
             print(f"[Main] Initializing Serial Transmitter ({com_port})...")
-            self.serial_comm = SerialTransmitter(port=com_port, baud_rate=baud)
+            self.esp_link = SerialChannel(port=com_port, baud_rate=baud)
+
+        # --- Sync Hardware Logic (Startup) ---
+        self.pull_hardware_config()
 
         print("[Main] Initializing Screen Grabber...")
         self.grabber = ScreenGrabber(self.config_mgr)
@@ -55,7 +57,7 @@ class AmbilightApp:
         self.tray = None
 
     # ==========================================
-    #           Observer Pattern
+    #            Observer Pattern
     # ==========================================
 
     def register_observer(self, callback_func):
@@ -71,7 +73,7 @@ class AmbilightApp:
                 print(f"[Observer Error] {e}")
 
     # ==========================================
-    #           Thread Management
+    #            Thread Management
     # ==========================================
 
     def start_worker_thread(self):
@@ -95,7 +97,7 @@ class AmbilightApp:
             self.tray.stop()
 
     # ==========================================
-    #           Core Logic (State Aware)
+    #            Core Logic (State Aware)
     # ==========================================
 
     def worker_logic(self):
@@ -109,23 +111,23 @@ class AmbilightApp:
             if self.current_mode == AppMode.AMBILIGHT:
                 frame = self.grabber.get_frame_bytes()
                 if frame:
-                    self.serial_comm.send_colors(frame)
+                    self.esp_link.send_colors(frame)
                     lights_physically_off = False
 
             else:
                 # In any other mode (OFF, RAINBOW, STATIC), PC stops sending data
                 if not lights_physically_off:
-                    self.serial_comm.send_colors(black_frame)
+                    self.esp_link.send_colors(black_frame)
                     lights_physically_off = True
 
                 time.sleep(0.5)
 
-        self.serial_comm.send_colors(black_frame)
-        self.serial_comm.disconnect()
+        self.esp_link.send_colors(black_frame)
+        self.esp_link.disconnect()
         print("[Worker] Logic loop finished.")
 
     # ==========================================
-    #           Settings Update
+    #            Settings Update
     # ==========================================
     def update_setting(self, key, value):
         """
@@ -133,74 +135,111 @@ class AmbilightApp:
         Handles cropping, depth, monitor index, and gamma.
         """
         needs_grabber_reload = False
+        needs_esp_sync = False
 
-        # --- Monitor & Gamma ---
+        # --- CLIENT ---
         if key == "gamma":
             self.config_mgr.config["client"]["gamma"] = float(value)
-            # Gamma usually doesn't need grabber reload, but maybe LUT regeneration
 
         elif key == "monitor_index":
             self.config_mgr.config["client"]["monitor_index"] = int(value)
             print(f"[App] Monitor changed: {value}")
             needs_grabber_reload = True
 
-        # --- Depth ---
         elif key == "depth":
             self.config_mgr.config["client"]["depth"] = int(value)
             needs_grabber_reload = True
 
-        # --- Cropping (crop_top, crop_left, etc.) ---
         elif key.startswith("crop_"):
-            side = key.replace("crop_", "")  # top, bottom, left, right
-
-            # Ensure 'cropping' dict exists
+            side = key.replace("crop_", "")
             if "cropping" not in self.config_mgr.config["client"]:
                 self.config_mgr.config["client"]["cropping"] = {}
-
             self.config_mgr.config["client"]["cropping"][side] = int(value)
             needs_grabber_reload = True
 
-        # --- Reload Components if needed ---
+        # --- HARDWARE ---
+        elif key == "brightness":
+            self.config_mgr.config["hardware"]["brightness"] = int(
+                value
+            )  # Fixed assignment
+            needs_esp_sync = True
+
+        elif key == "smoothing_speed":
+            self.config_mgr.config["hardware"]["smoothing_speed"] = int(value)
+            needs_esp_sync = True
+
+        # --- Reload Components ---
         if needs_grabber_reload and self.grabber:
             self.grabber.reload_config()
 
+        # --- Sync (Realtime) ---
+        if needs_esp_sync:
+            cmd = {"cmd": key, "value": int(value)}
+            self.esp_link.send_command(cmd)
+
     # ==========================================
-    #           External Control (State Machine)
+    #         Hardware Synchronization
+    # ==========================================
+
+    def pull_hardware_config(self):
+        """
+        STARTUP ONLY: Fetches 'Source of Truth' (Hardware constraints) from ESP.
+        Updates local config with num_leds, max_milliamps, etc.
+        """
+        print("[Sync] Requesting hardware config from ESP via Transmitter...")
+
+        self.esp_link.send_command({"cmd": "get_config"})
+
+        response = self.esp_link.wait_for_json(timeout=2.0)
+
+        if response:
+            print("[Sync] ESP responded! Updating local hardware.")
+            if "hardware" in response:
+                self.config_mgr.config["hardware"].update(response["hardware"])
+            self.config_mgr._save_local_config(self.config_mgr.config)
+        else:
+            print("[Sync] No response from ESP. Using local cached config.")
+
+    def push_hardware_config(self):
+        """
+        USER ACTION: Forces ESP to update its settings based on GUI.
+        Called when 'Save Settings' is clicked.
+        """
+        print("[Sync] Pushing configuration TO ESP...")
+        hw_config = self.config_mgr.config.get("hardware", {})
+
+        payload = {"cmd": "save_config", "data": hw_config}
+
+        self.esp_link.send_command(payload)
+        self.config_mgr._save_local_config(self.config_mgr.config)
+        print("[Sync] Hardware settings pushed and saved locally.")
+
+    # ==========================================
+    #            External Control
     # ==========================================
 
     def set_mode(self, new_mode: AppMode, **kwargs):
-        """
-        Handles mode switching logic.
-        """
         if self.current_mode == new_mode:
             return
 
         print(f"[App] Switching: {self.current_mode.name} -> {new_mode.name}")
-
         cmd = {}
 
         if new_mode == AppMode.AMBILIGHT:
             cmd = {"cmd": "mode", "value": "ambilight"}
-
         elif new_mode == AppMode.RAINBOW:
             cmd = {"cmd": "mode", "value": "rainbow"}
-
         elif new_mode == AppMode.STATIC:
             color = kwargs.get("color", [255, 0, 0])
             cmd = {"cmd": "mode", "value": "static", "color": color}
-
         elif new_mode == AppMode.OFF:
             cmd = {"cmd": "mode", "value": "off"}
 
-        # Send the command to ESP
-        self.serial_comm.send_command(cmd)
-
-        # Update State & Notify
+        self.esp_link.send_command(cmd)
         self.current_mode = new_mode
         self._notify_observers()
 
     def toggle(self):
-        """Helper for Tray Icon to toggle ON/OFF"""
         if self.current_mode == AppMode.OFF:
             self.set_mode(AppMode.AMBILIGHT)
             return "ON"
@@ -209,7 +248,6 @@ class AmbilightApp:
             return "OFF"
 
     def stop(self):
-        """Called when user requests total exit (e.g., from Tray)"""
         print("[App] Total exit requested.")
         self.current_mode = AppMode.EXIT
         self._notify_observers()

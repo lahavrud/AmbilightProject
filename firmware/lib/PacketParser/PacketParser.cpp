@@ -110,6 +110,7 @@ void PacketParser::executeJsonCommand() {
         return;
     }
 
+    AppConfig& cfg = AppConfig::get();
     const char* command = doc["cmd"];
 
     if (strcmp(command, "config") == 0) {
@@ -117,6 +118,12 @@ void PacketParser::executeJsonCommand() {
     }
     else if (strcmp(command, "mode") == 0) {
         handleModeChange(doc);
+    }
+    else if (strcmp(command, "brightness") == 0) {
+        ledController.setBrightness(doc["value"]);
+    }
+    else if (strcmp(command, "smoothing_speed") == 0) {
+        cfg.hardware.smoothing_speed = doc["value"];
     }
     else if (strcmp(command, "get_config") == 0) {
         if (responder != nullptr) {
@@ -127,7 +134,8 @@ void PacketParser::executeJsonCommand() {
         }
     }
     else {
-        Serial.println(F("Unknown command"));
+        Serial.print(F("Unknown command: "));
+        Serial.println(command);
     }
 }
 
@@ -152,15 +160,15 @@ void PacketParser::handleConfigUpdate(JsonDocument& doc) {
         if (clientObj["cropping"]) {
             JsonObject crop = clientObj["cropping"];
 
-            if (crop.containsKey("left"))   { cfg.client.cropping.left = crop["left"]; changed = true; }
-            if (crop.containsKey("top"))    { cfg.client.cropping.top = crop["top"]; changed = true; }
-            if (crop.containsKey("right"))  { cfg.client.cropping.right = crop["right"]; changed = true; }
-            if (crop.containsKey("bottom")) { cfg.client.cropping.bottom = crop["bottom"]; changed = true; }
+            if (crop["left"])    { cfg.client.cropping.left = crop["left"]; changed = true; }
+            if (crop["top"])     { cfg.client.cropping.top = crop["top"]; changed = true; }
+            if (crop["right"])  { cfg.client.cropping.right = crop["right"]; changed = true; }
+            if (crop["bottom"]) { cfg.client.cropping.bottom = crop["bottom"]; changed = true; }
         }
 
-        if (clientObj.containsKey("monitor_index")) { cfg.client.monitor_index = clientObj["monitor_index"]; changed = true; }
-        if (clientObj.containsKey("depth"))         { cfg.client.depth = clientObj["depth"]; changed = true; }
-        if (clientObj.containsKey("gamma"))         { cfg.client.gamma = clientObj["gamma"]; changed = true; }
+        if (clientObj["monitor_index"]) { cfg.client.monitor_index = clientObj["monitor_index"]; changed = true; }
+        if (clientObj["depth"])         { cfg.client.depth = clientObj["depth"]; changed = true; }
+        if (clientObj["gamma"])         { cfg.client.gamma = clientObj["gamma"]; changed = true; }
     }
 
     if (changed) {
